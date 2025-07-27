@@ -1,0 +1,434 @@
+<?php
+
+declare(strict_types=1);
+
+/*
+ * This file is part of the package "typo3-config" by Moselwal Digitalagentur GmbH.
+ *
+ * It is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License, either version 2
+ * of the License, or any later version.
+ */
+
+namespace Moselwal;
+
+use TYPO3\CMS\Core\Cache\Backend\RedisBackend;
+use TYPO3\CMS\Core\Core\ApplicationContext;
+use TYPO3\CMS\Core\Core\Environment;
+use TYPO3\CMS\Core\Information\Typo3Version;
+use TYPO3\CMS\Core\Log\LogLevel;
+use TYPO3\CMS\Core\Log\Writer\FileWriter;
+use TYPO3\CMS\Core\Log\Writer\NullWriter;
+use TYPO3\CMS\Core\Utility\ArrayUtility;
+
+/**
+ * Class to use in your configuration files of a TYPO3 project.
+ */
+class Config
+{
+    protected ApplicationContext $context;
+    protected Typo3Version $version;
+    protected string $configPath;
+    protected string $varPath;
+    protected bool $ddevEnvironment = false;
+
+    /**
+     * @var Config
+     */
+    protected static $instance;
+
+    private function __construct()
+    {
+        $this->context = Environment::getContext();
+        $this->version = new Typo3Version();
+        $this->configPath = Environment::getConfigPath();
+        $this->varPath = Environment::getVarPath();
+    }
+
+    /**
+     * @return static
+     */
+    public static function initialize(bool $applyDefaults = true): self
+    {
+        // Late static binding
+        self::$instance = new static();
+        if ($applyDefaults === false) {
+            return self::$instance;
+        }
+        return self::$instance
+            // use sensible default based on Context
+            ->applyDefaults();
+    }
+
+    /**
+     * @return static
+     */
+    public static function get(): self
+    {
+        return self::$instance;
+    }
+
+    public function applyDefaults(): self
+    {
+        // Include presets by default
+        self::$instance
+            ->forbidInvalidCacheHashQueryParameter()
+            ->forbidNoCacheQueryParameter();
+
+        if (self::$instance->context->isDevelopment() || self::$instance->context->isTesting()) {
+            self::$instance->useDevelopmentPreset();
+        } elseif (self::$instance->context->isProduction()) {
+            self::$instance->useProductionPreset();
+        }
+        return $this;
+    }
+
+    /**
+     * Append TYPO3_CONTEXT to site name in the TYPO3 backend
+     */
+    public function appendContextToSiteName(): self
+    {
+        if ($this->context->isProduction() === false) {
+            $GLOBALS['TYPO3_CONF_VARS']['SYS']['sitename'] .= ' - ' . (string)$this->context;
+        }
+        return $this;
+    }
+
+    public function initializeDatabaseConnection(?array $options = null, $connectionName = 'Default'): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName] = array_replace_recursive(
+            $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName],
+            $options
+        );
+        return $this;
+    }
+
+    /**
+     * Default settings for production, can be overridden again in each project / production.php
+     * @return $this
+     */
+    public function useProductionPreset(): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['BE']['debug'] = false;
+        $GLOBALS['TYPO3_CONF_VARS']['FE']['debug'] = false;
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['devIPmask'] = '';
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['displayErrors'] = -1;
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['belogErrorReporting'] = E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR | E_USER_ERROR | E_RECOVERABLE_ERROR;
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['exceptionalErrors'] = E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR | E_USER_ERROR | E_RECOVERABLE_ERROR;
+        $this->disableDeprecationLogging();
+        $GLOBALS['TYPO3_CONF_VARS']['LOG']['writerConfiguration'] = array_replace_recursive(
+            [
+                LogLevel::DEBUG => [
+                    FileWriter::class => ['disabled' => true],
+                ],
+                LogLevel::INFO => [
+                    FileWriter::class => ['disabled' => true],
+                ],
+                LogLevel::WARNING => [
+                    FileWriter::class => ['disabled' => true],
+                ],
+                LogLevel::ERROR => [
+                    FileWriter::class => ['disabled' => false],
+                ],
+            ],
+            $GLOBALS['TYPO3_CONF_VARS']['LOG']['writerConfiguration']
+        );
+        return $this;
+    }
+
+    public function useDevelopmentPreset(): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['BE']['debug'] = true;
+        $GLOBALS['TYPO3_CONF_VARS']['FE']['debug'] = true;
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['devIPmask'] = '*';
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['displayErrors'] = 1;
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['belogErrorReporting'] = E_ALL;
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['exceptionalErrors'] = E_ALL;
+        $this->enableDeprecationLogging();
+        // Log warnings to files
+        $GLOBALS['TYPO3_CONF_VARS']['LOG']['writerConfiguration'][LogLevel::WARNING] = [
+            FileWriter::class => ['disabled' => false],
+        ];
+        return $this;
+    }
+
+    public function useImageMagick(string $path = '/usr/bin/'): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['GFX']['processor'] = 'ImageMagick';
+        $GLOBALS['TYPO3_CONF_VARS']['GFX']['processor_path'] = $path;
+        $GLOBALS['TYPO3_CONF_VARS']['GFX']['processor_path_lzw'] = $path;
+        return $this;
+    }
+
+    public function useGraphicsMagick(string $path = '/usr/bin/'): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['GFX']['processor'] = 'GraphicsMagick';
+        $GLOBALS['TYPO3_CONF_VARS']['GFX']['processor_path'] = $path;
+        $GLOBALS['TYPO3_CONF_VARS']['GFX']['processor_path_lzw'] = $path;
+        return $this;
+    }
+
+    public function useMailpit(string $host = 'localhost', ?int $port = null): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['MAIL']['transport'] = 'smtp';
+        $GLOBALS['TYPO3_CONF_VARS']['MAIL']['transport_smtp_encrypt'] = '';
+        $GLOBALS['TYPO3_CONF_VARS']['MAIL']['transport_smtp_password'] = '';
+        $GLOBALS['TYPO3_CONF_VARS']['MAIL']['transport_smtp_server'] = $host . ($port ? ':' . (string)$port : '');
+        $GLOBALS['TYPO3_CONF_VARS']['MAIL']['transport_smtp_username'] = '';
+        return $this;
+    }
+
+    public function useMailhog(string $host = 'localhost', ?int $port = null): self
+    {
+        return $this->useMailpit($host, $port);
+    }
+
+    public function allowNoCacheQueryParameter(): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['FE']['disableNoCacheParameter'] = false;
+        return $this;
+    }
+
+    public function forbidNoCacheQueryParameter(): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['FE']['disableNoCacheParameter'] = true;
+        return $this;
+    }
+
+    public function allowInvalidCacheHashQueryParameter(): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['FE']['pageNotFoundOnCHashError'] = false;
+        return $this;
+    }
+
+    public function forbidInvalidCacheHashQueryParameter(): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['FE']['pageNotFoundOnCHashError'] = true;
+        return $this;
+    }
+
+    public function excludeQueryParameterForCacheHashCalculation(string $queryParameter): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['FE']['cacheHash']['excludedParameters'][] = $queryParameter;
+        return $this;
+    }
+
+    public function excludeQueryParametersForCacheHashCalculation(array $queryParameters): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['FE']['cacheHash']['excludedParameters'] = array_merge(
+            $GLOBALS['TYPO3_CONF_VARS']['FE']['cacheHash']['excludedParameters'],
+            $queryParameters
+        );
+        return $this;
+    }
+
+    public function enableDeprecationLogging(): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['LOG']['TYPO3']['CMS']['deprecations']['writerConfiguration'][LogLevel::NOTICE]['TYPO3\CMS\Core\Log\Writer\FileWriter']['disabled'] = false;
+        return $this;
+    }
+
+    public function disableDeprecationLogging(): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['LOG']['TYPO3']['CMS']['deprecations']['writerConfiguration'][LogLevel::NOTICE]['TYPO3\CMS\Core\Log\Writer\FileWriter']['disabled'] = true;
+        return $this;
+    }
+
+    /**
+     * Additional Project-specific methods
+     */
+    public function configureExceptionHandlers(string $productionExceptionHandlerClassName, string $debugExceptionHandlerClassName): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['productionExceptionHandler'] = $productionExceptionHandlerClassName;
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['debugExceptionHandler'] = $debugExceptionHandlerClassName;
+        return $this;
+    }
+
+    /**
+     * Configures a log file for solr based on the TYPO3 Context, with a separate file for solr.
+     *
+     * @return $this
+     */
+    public function autoconfigureSolrLogging(string $fileName = 'solr.log', ?string $forceLogLevel = null): self
+    {
+        if ($forceLogLevel !== null) {
+            $logLevel = $forceLogLevel;
+        } else {
+            $logLevel = $this->context->isProduction() ? LogLevel::ERROR : LogLevel::DEBUG;
+        }
+        return $this->addFileLogger('ApacheSolrForTypo3\\Solr', $fileName, $logLevel);
+    }
+
+    /**
+     * Shorthand function to add a file logger in a quick manner in the typical log folder.
+     * @return $this
+     */
+    public function addFileLogger(string $namespace, ?string $fileName = null, ?string $logLevel = null): self
+    {
+        $fileName = $fileName ?? strtolower(str_replace('\\', '_', $namespace)) . '.log';
+        if ($logLevel === null) {
+            $logLevel = $this->context->isProduction() ? LogLevel::ERROR : LogLevel::DEBUG;
+        }
+        $logFile = $this->varPath . '/log/' . $fileName;
+        $value = [
+            'writerConfiguration' => [
+                $logLevel => [
+                    FileWriter::class => [
+                        'logFile' => $logFile,
+                    ],
+                ],
+            ],
+        ];
+        $GLOBALS['TYPO3_CONF_VARS']['LOG'] = ArrayUtility::setValueByPath($GLOBALS['TYPO3_CONF_VARS']['LOG'], $namespace, $value, '\\');
+        return $this;
+    }
+
+    /**
+     * Disable logging for a specific namespace.
+     * @return $this
+     */
+    public function setNullLogger(string $namespace, string $logLevel = LogLevel::DEBUG): self
+    {
+        $value = [
+            'writerConfiguration' => [
+                $logLevel => [
+                    NullWriter::class => [],
+                ],
+            ],
+        ];
+        $GLOBALS['TYPO3_CONF_VARS']['LOG'] = ArrayUtility::setValueByPath($GLOBALS['TYPO3_CONF_VARS']['LOG'], $namespace, $value, '\\');
+        return $this;
+    }
+
+    /**
+     * Activates caching for Redis, if used in its environment.
+     *
+     * @param array|null $caches an associative array of [cache_name => default lifetime], if null, then we rely on best practices
+     * @param string $redisHost alternative redis host
+     * @param int $redisStartDb the start DB for the redis caches
+     * @param int $redisPort alternative port for redis, usually 6379
+     * @param null $alternativeCacheBackend alternative cache backend, useful if you use b13/graceful-caches
+     * @return $this
+     */
+    public function initializeRedisCaching(?array $caches = null, string $redisHost = '127.0.0.1', int $redisStartDb = 0, int $redisPort = 6379, $alternativeCacheBackend = null, array $additionalCaches = []): self
+    {
+        $isVersion12OrHigher = $this->version->getMajorVersion() >= 12;
+        $cacheBackend = $alternativeCacheBackend ?? RedisBackend::class;
+        $redisDb = $redisStartDb;
+        $caches = array_merge(
+            $caches ?? [
+                'pages' => 86400 * 30,
+                'pagesection' => 86400 * 30,
+                'hash' => 86400 * 30,
+                'rootline' => 86400 * 30,
+                'extbase' => 0,
+            ], 
+            $additionalCaches
+        );
+
+        if ($isVersion12OrHigher) {
+            unset($caches['pagesection'], $caches['cache_pagesection']);
+        }
+        foreach ($caches as $key => $lifetime) {
+            $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations'][$key]['backend'] = $cacheBackend;
+            $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations'][$key]['options'] = [
+                'database' => $redisDb++,
+                'hostname' => $redisHost,
+                'port' => $redisPort,
+                'defaultLifetime' => $lifetime,
+            ];
+        }
+        return $this;
+    }
+
+    /**
+     * Useful for distributed systems to put caches outside an NFS mount.
+     *
+     * @param string $path
+     * @param array|null $applyForCaches
+     * @return $this
+     */
+    public function setAlternativeCachePath(string $path, ?array $applyForCaches = null): self
+    {
+        $applyForCaches = $applyForCaches ?? [
+            'cache_core',
+            'fluid_template',
+            'assets',
+            'l10n',
+        ];
+        foreach ($applyForCaches as $cacheName) {
+            $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations'][$cacheName]['options']['cacheDirectory'] = $path;
+        }
+        return $this;
+    }
+
+    /**
+     * Set PHP configuration settings.
+     *
+     * This method attempts to set PHP configuration settings using ini_set.
+     * If ini_set is disabled (e.g., due to server restrictions), the setting will not be applied,
+     * and a warning will be logged.
+     *
+     * Example:
+     * \B13\Config::get()->setPhpSettings([
+     *      'max_execution_time' => 1000,
+     *      'max_input_time' => 1000,
+     *      'post_max_size' => '100M',
+     *      'upload_max_filesize' => '100M',
+     * ]);
+     *
+     * @param array $settings An associative array of PHP settings.
+     * @return $this
+     */
+    public function setPhpSettings(array $settings): self
+    {
+        foreach ($settings as $key => $value) {
+            try {
+                if (function_exists('ini_set') && !ini_get($key)) {
+                    ini_set($key, $value);
+                } else {
+                    error_log("Unable to set PHP setting $key, ini_set is disabled or already set.");
+                }
+            } catch (\ErrorException $e) {
+                error_log("Error setting PHP configuration for $key: " . $e->getMessage());
+            }
+        }
+
+        return $this;
+    }
+
+    /**
+     * Override or append TYPO3 configuration settings for a given path with key-value pairs.
+     *
+     * Examples:
+     * \B13\Config::get()->setConfigPathValues('EXTENSIONS/alterations', ['just-a-test' => 'test']);
+     * \B13\Config::get()->setConfigPathValues(
+     *   'SYS',
+     *   [
+     *      'just-a-test' => 'test',
+     *      'defaultScheme' => 'https'
+     *   ]);
+     *
+     * @param string $configPath A string representing the path to the configuration option.
+     * @param array $keyValuePairs An associative array of key-value pairs to set within the specified path.
+     * @return $this
+     */
+    public function setConfigPathValues(string $configPath, array $keyValuePairs): self
+    {
+        $config = &$GLOBALS['TYPO3_CONF_VARS'];
+
+        $configPath = explode('/', $configPath);
+
+        foreach ($configPath as $key => $value) {
+            if (!isset($config[$value])) {
+                $config[$value] = [];
+            }
+            $config = &$config[$value];
+        }
+
+        $config = array_replace_recursive($config, $keyValuePairs);
+
+        return $this;
+    }
+
+}
