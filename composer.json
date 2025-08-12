@@ -1,15 +1,55 @@
 {
-  "name": "moselwal/typo3-config",
-  "description": "Fluent API to set environment-specific configuration for TYPO3",
-  "license": "proprietary",
-  "require": {
-    "php": "^8.0",
-    "typo3/cms-core": "^11.0.0 || ^12.0.0 || ^13.0.0"
-  },
-  "autoload": {
-    "classmap": ["src/"]
-  },
-  "require-dev": {
-    "typo3/coding-standards": "^0.8"
-  }
+	"name": "moselwal/typo3-config",
+	"description": "Fluent API to set environment-specific configuration for TYPO3",
+	"license": "MIT",
+	"version": "1.0.0",
+	"require": {
+		"php": "^8.0",
+		"composer/installers": "^2.3",
+		"typo3/cms-core": "^11.0.0 || ^12.0.0 || ^13.0.0"
+	},
+	"autoload": {
+		"psr-4": {
+			"Moselwal\\": "src"
+		}
+	},
+	"require-dev": {
+		"typo3/coding-standards": "^0.8"
+	},
+	"config": {
+		"allow-plugins": {
+			"typo3/cms-composer-installers": true,
+			"typo3/class-alias-loader": true
+		}
+	},
+	"scripts": {
+		"composer:normalize": "../dev/composer-normalize.phar --dry-run --no-check-lock",
+		"composer:normalize:fix": "../dev/composer-normalize.phar --no-check-lock",
+		"composer:psr-verify": "@composer dumpautoload --optimize --strict-psr",
+		"composer:validate": "@composer validate --strict",
+		"json:lint": "find . ! -path '*.composer/*' ! -path '*Build/*' ! -path '*node_modules/*' -name '*.json' | xargs -r php ../../vendor/bin/jsonlint -q",
+		"phpcs:analyze": "php -d memory_limit=2G ../../vendor/bin/php-cs-fixer check --config=../dev/.php-cs-fixer.dist.php -v --diff",
+		"phpcs:fix": "php -d memory_limit=2G ../../vendor/bin/php-cs-fixer fix . --config=../dev/.php-cs-fixer.dist.php -v --using-cache=no --diff",
+		"phpmd:analyze": "php ../../vendor/bin/phpmd Classes/ text cleancode,codesize,controversial,design,naming,unusedcode --baseline-file phpmd.baseline.xml",
+		"phpmd:generatebaseline": "php ../../vendor/bin/phpmd Classes/ text cleancode,codesize,controversial,design,naming,unusedcode --baseline-file phpmd.baseline.xml --generate-baseline",
+		"phpstan:analyze": "php ../../vendor/bin/phpstan analyse -c ../dev/phpstan.neon --no-progress",
+		"phpstan:generatebaseline": "php ../../vendor/bin/phpstan analyse -c ../dev/phpstan.neon --no-progress --generate-baseline",
+		"typoscript:lint": "php ../../vendor/bin/typoscript-lint -c ../dev/.typoscript-lint.yml --ansi -n --fail-on-warnings -vvv Configuration/TypoScript",
+		"yaml:lint": "rm -rf Build/node_modules && find . -not -path './.composer/*' -not -path './Build/*' -name '*.yaml' -o -name '*.yml' | xargs -r php ../../vendor/bin/yaml-lint"
+	},
+	"scripts-descriptions": {
+		"composer:normalize": "Normalize composer.json",
+		"composer:normalize:fix": "Normalize composer.json and fix it",
+		"composer:psr-verify": "Verify PSR-4 autoloading",
+		"composer:validate": "Validate composer.json",
+		"json:lint": "Lint JSON files",
+		"phpcs:analyze": "Analyze code with PHP Code Sniffer (Moselwal Ruleset)",
+		"phpcs:fix": "Fix code with PHP Code Sniffer (Moselwal Ruleset)",
+		"phpmd:analyze": "Analyze code with PHPMD",
+		"phpmd:generatebaseline": "Generate baseline for PHPMD",
+		"phpstan:analyze": "Analyze code with PHPStan",
+		"phpstan:generatebaseline": "Generate baseline for PHPStan",
+		"typoscript:lint": "Lint TypoScript files",
+		"yaml:lint": "Lint YAML files"
+	}
 }
