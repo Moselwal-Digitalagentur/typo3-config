@@ -2,7 +2,6 @@
 	"name": "moselwal/typo3-config",
 	"description": "Fluent API to set environment-specific configuration for TYPO3",
 	"license": "MIT",
-	"version": "1.0.0",
 	"require": {
 		"php": "^8.0",
 		"composer/installers": "^2.3",
