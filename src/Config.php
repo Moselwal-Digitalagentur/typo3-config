@@ -8,7 +8,9 @@ declare(strict_types=1);
 
 namespace Moselwal;
 
-use TYPO3\CMS\Core\Cache\Backend\RedisBackend;
+use Moselwal\KeyValueStore\Cache\Backend\KeyValueBackend;
+use Moselwal\KeyValueStore\Locking\KeyValueLockingStrategy;
+use Moselwal\KeyValueStore\Session\Backend\KeyValueSessionBackend;
 use TYPO3\CMS\Core\Core\ApplicationContext;
 use TYPO3\CMS\Core\Core\Environment;
 use TYPO3\CMS\Core\Information\Typo3Version;
@@ -247,7 +249,8 @@ class Config implements ConfigInterface
                 getenv('BUILD_DATE'),
                 (string)$this->context
             ]));
-            $configReaderFactory = new \Helhum\ConfigLoader\ConfigurationReaderFactory(dirname(__DIR__));
+            // Use the TYPO3 project root so the TYPO3 env reader maps TYPO3__* variables correctly
+            $configReaderFactory = new \Helhum\ConfigLoader\ConfigurationReaderFactory(\TYPO3\CMS\Core\Core\Environment::getProjectPath());
             $configLoader = new \Helhum\ConfigLoader\CachedConfigurationLoader(
                 $cacheDir,
                 $cacheIdentifier,
@@ -420,41 +423,44 @@ class Config implements ConfigInterface
 
             $keyvaluePassword = $this->resolveSecret('KEYVALUE_PASSWORD', $keyvaluePassword);
 
-            if (class_exists(\Moselwal\Typo3Sitepackage\Locking\RedisLockingStrategy::class)) {
-                $GLOBALS['TYPO3_CONF_VARS']['SYS']['locking']['strategies'][\Moselwal\Typo3Sitepackage\Locking\RedisLockingStrategy::class] = [
-                    'options' => [
+            $keyvalueTlsOptions = $this->autoconfigureKeyValueMtlsOptions($redisHost);
+
+            // Locking strategy
+            if (class_exists(KeyValueLockingStrategy::class)) {
+                $GLOBALS['TYPO3_CONF_VARS']['SYS']['locking']['strategies'][KeyValueLockingStrategy::class] = [
+                    'options' => array_replace([
                         'hostname' => $redisHost,
                         'database' => 0,
                         'port' => $redisPort,
                         'persistentConnection' => true,
-                        'ttl' => 10
-                    ],
+                        'ttl' => 10,
+                    ], $keyvalueTlsOptions),
                 ];
 
-
                 if (!is_null($keyvaluePassword)) {
-                    $GLOBALS['TYPO3_CONF_VARS']['SYS']['locking']['strategies'][\Moselwal\Typo3Sitepackage\Locking\RedisLockingStrategy::class]['options']['password'] = $keyvaluePassword;
+                    $GLOBALS['TYPO3_CONF_VARS']['SYS']['locking']['strategies'][KeyValueLockingStrategy::class]['options']['password'] = $keyvaluePassword;
                 }
             }
 
+            // Sessions
             $GLOBALS['TYPO3_CONF_VARS']['SYS']['session'] = [
                 'BE' => [
-                    'backend' => \TYPO3\CMS\Core\Session\Backend\RedisSessionBackend::class,
-                    'options' => [
+                    'backend' => KeyValueSessionBackend::class,
+                    'options' => array_replace([
                         'hostname' => $redisHost,
                         'database' => 1,
                         'port' => $redisPort,
                         'persistentConnection' => true,
-                    ]
+                    ], $keyvalueTlsOptions)
                 ],
                 'FE' => [
-                    'backend' => \TYPO3\CMS\Core\Session\Backend\RedisSessionBackend::class,
-                    'options' => [
+                    'backend' => KeyValueSessionBackend::class,
+                    'options' => array_replace([
                         'hostname' => $redisHost,
                         'database' => 2,
                         'port' => $redisPort,
                         'persistentConnection' => true,
-                    ]
+                    ], $keyvalueTlsOptions)
                 ],
             ];
 
@@ -463,30 +469,31 @@ class Config implements ConfigInterface
                 $GLOBALS['TYPO3_CONF_VARS']['SYS']['session']['FE']['options']['password'] = $keyvaluePassword;
             }
 
-            $redisCaches = array_merge( $redisCaches ?? [
-                // Core
-                'pages' => [
-                    'defaultLifetime' => 86400*30, // 1 mont
-                    'compression' => true,
+            $redisCaches = array_merge(
+                $redisCaches ?? [
+                    // Core
+                    'pages' => [
+                        'defaultLifetime' => 86400*30, // 1 month
+                        'compression' => true,
+                    ],
+                    'pagesection' => [
+                        'defaultLifetime' => 86400*30,
+                    ],
+                    'hash' => [
+                        'defaultLifetime' => 86400*30,
+                    ],
+                    'rootline' => [
+                        'defaultLifetime' => 86400*30,
+                    ],
+                    'imagesizes' => [],
+                    'workspaces_cache' => [],
+                    // Extensions
+                    'preview_renderer_cache' => [],
+                    'sg_mail_registerArrayCache' => [],
+                    'l10n' => [
+                        'defaultLifetime' => 86400*30,
+                    ],
                 ],
-                'pagesection' => [
-                    'defaultLifetime' => 86400*30,
-                ],
-                'hash' => [
-                    'defaultLifetime' => 86400*30,
-                ],
-                'rootline' => [
-                    'defaultLifetime' => 86400*30,
-                ],
-                'imagesizes' => [],
-                'workspaces_cache' => [],
-                // Extensions
-                'preview_renderer_cache' => [],
-                'sg_mail_registerArrayCache' => [],
-                'l10n' => [
-                    'defaultLifetime' => 86400*30,
-                ],
-            ],
                 $additionalCachesKeyValue
             );
 
@@ -497,13 +504,13 @@ class Config implements ConfigInterface
             $redisDatabase = 3;
             foreach ($redisCaches as $name => $values) {
                 $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations'][$name]['backend']
-                    =  \TYPO3\CMS\Core\Cache\Backend\RedisBackend::class;
-                $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations'][$name]['options'] = [
+                    =  KeyValueBackend::class;
+                $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations'][$name]['options'] = array_replace([
                     'database' => $redisDatabase++,
                     'hostname' => $redisHost,
                     'port' => $redisPort,
                     'persistentConnection' => true,
-                ];
+                ], $keyvalueTlsOptions);
                 if (isset($values['defaultLifetime'])) {
                     $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations'][$name]['options']['defaultLifetime']
                         = $values['defaultLifetime'];
@@ -608,6 +615,101 @@ class Config implements ConfigInterface
     }
 
     /**
+     * Auto-configure PDO MySQL TLS/mTLS driver options if certificate files are present.
+     *
+     * This configures the `DB/Connections/Default/driverOptions` array so PDO uses TLS with
+     * client certificate authentication (mTLS) when the files exist.
+     */
+    private function autoconfigureDatabaseMtls(string $connectionName = 'Default'): void
+    {
+        // Resolve certificate paths.
+        // 1) Prefer name-based resolution (single logical name -> cert/key in a directory)
+        // 2) Fall back to explicit file paths
+        // 3) Finally fall back to the conventional defaults in /run/tls
+
+        $tlsDir = rtrim(trim((string)getenv('DB_SSL_DIR') ?: ''), '/');
+        if ($tlsDir === '') {
+            $tlsDir = '/run/tls';
+        }
+
+        // Try to infer a reasonable certificate basename.
+        // - DB_SSL_NAME allows explicitly setting the client cert basename.
+        // - Otherwise we try to derive from the configured DB host (first label),
+        //   and finally fall back to "httpd" (your current convention).
+        $dbHost = trim((string)getenv('TYPO3__DB__Connections__Default__host') ?: '');
+        $hostLabel = $dbHost !== '' ? explode('.', $dbHost, 2)[0] : '';
+
+        $nameCandidates = array_values(array_filter([
+            trim((string)getenv('DB_SSL_NAME') ?: ''),
+            $hostLabel,
+            'httpd',
+        ], static fn ($v) => $v !== ''));
+
+        $caFile = '';
+        $certFile = '';
+        $keyFile = '';
+
+        // Name-based resolution: <dir>/ca.crt + <dir>/<name>.crt + <dir>/<name>.key
+        foreach ($nameCandidates as $name) {
+            $candidateCa = $tlsDir . '/ca.crt';
+            $candidateCert = $tlsDir . '/' . $name . '.crt';
+            $candidateKey = $tlsDir . '/' . $name . '.key';
+
+            if (is_readable($candidateCa) && is_readable($candidateCert) && is_readable($candidateKey)) {
+                $caFile = $candidateCa;
+                $certFile = $candidateCert;
+                $keyFile = $candidateKey;
+                break;
+            }
+        }
+
+        // Explicit file path overrides (fallback)
+        if ($caFile === '') {
+            $caFile = trim((string)getenv('DB_SSL_CA') ?: '');
+        }
+        if ($certFile === '') {
+            $certFile = trim((string)getenv('DB_SSL_CERT') ?: '');
+        }
+        if ($keyFile === '') {
+            $keyFile = trim((string)getenv('DB_SSL_KEY') ?: '');
+        }
+
+        // Conventional defaults (final fallback)
+        if ($caFile === '') {
+            $caFile = '/run/tls/ca.crt';
+        }
+        if ($certFile === '') {
+            $certFile = '/run/tls/httpd.crt';
+        }
+        if ($keyFile === '') {
+            $keyFile = '/run/tls/httpd.key';
+        }
+
+        // Only apply if all files are readable (avoid breaking non-mTLS environments).
+        if (!is_readable($caFile) || !is_readable($certFile) || !is_readable($keyFile)) {
+            return;
+        }
+
+        $driverOptions = [
+            \PDO::MYSQL_ATTR_SSL_CA => $caFile,
+            \PDO::MYSQL_ATTR_SSL_CERT => $certFile,
+            \PDO::MYSQL_ATTR_SSL_KEY => $keyFile,
+        ];
+
+        // Available in mysqlnd; if not defined, we skip it.
+        if (defined('PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT')) {
+            $driverOptions[\PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
+        }
+
+        // Merge into existing connection options.
+        $existing = $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName]['driverOptions'] ?? [];
+        if (!is_array($existing)) {
+            $existing = [];
+        }
+        $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName]['driverOptions'] = array_replace($existing, $driverOptions);
+    }
+
+    /**
      * @param string|null $dbUser
      * @param string|null $dbPassword
      * @param string|null $encriptionKey
@@ -625,6 +727,9 @@ class Config implements ConfigInterface
             'user' => $this->resolveSecret('DB_USER', $dbUser),
             'password' => $this->resolveSecret('DB_PASSWORD', $dbPassword),
         ]);
+
+        // Automatically enable TLS/mTLS for the database if certificates are available.
+        $this->autoconfigureDatabaseMtls('Default');
 
         $GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey'] =
             $this->resolveSecret('ENCRYPTION_KEY', $encriptionKey);
@@ -739,4 +844,89 @@ class Config implements ConfigInterface
         return $this;
     }
 
+    /**
+     * Autoconfigure Redis/Valkey TLS/mTLS options for moselwal/keyvalue-store if certificate files are present.
+     *
+     * Returns an options array compatible with KeyValueConnectionFactory:
+     *  - tls, ca_file, cert_file, key_file, peer_name, verify_peer, verify_peer_name, allow_self_signed
+     *
+     * Resolution order:
+     *  1) Name-based: ${KEYVALUE_SSL_DIR:-/run/tls}/ca.crt + ${name}.crt + ${name}.key
+     *     name candidates: KEYVALUE_SSL_NAME, first label of KEYVALUE_HOST, fallback "httpd"
+     *  2) Explicit paths: KEYVALUE_SSL_CA / KEYVALUE_SSL_CERT / KEYVALUE_SSL_KEY
+     *  3) Conventional defaults: /run/tls/ca.crt + /run/tls/httpd.crt + /run/tls/httpd.key
+     */
+    private function autoconfigureKeyValueMtlsOptions(string $host): array
+    {
+        $tlsDir = rtrim(trim((string)getenv('KEYVALUE_SSL_DIR') ?: ''), '/');
+        if ($tlsDir === '') {
+            $tlsDir = '/run/tls';
+        }
+
+        $hostLabel = $host !== '' ? explode('.', $host, 2)[0] : '';
+
+        $nameCandidates = array_values(array_filter([
+            trim((string)getenv('KEYVALUE_SSL_NAME') ?: ''),
+            $hostLabel,
+            'httpd',
+        ], static fn ($v) => $v !== ''));
+
+        $caFile = '';
+        $certFile = '';
+        $keyFile = '';
+
+        foreach ($nameCandidates as $name) {
+            $candidateCa = $tlsDir . '/ca.crt';
+            $candidateCert = $tlsDir . '/' . $name . '.crt';
+            $candidateKey = $tlsDir . '/' . $name . '.key';
+
+            if (is_readable($candidateCa) && is_readable($candidateCert) && is_readable($candidateKey)) {
+                $caFile = $candidateCa;
+                $certFile = $candidateCert;
+                $keyFile = $candidateKey;
+                break;
+            }
+        }
+
+        if ($caFile === '') {
+            $caFile = trim((string)getenv('KEYVALUE_SSL_CA') ?: '');
+        }
+        if ($certFile === '') {
+            $certFile = trim((string)getenv('KEYVALUE_SSL_CERT') ?: '');
+        }
+        if ($keyFile === '') {
+            $keyFile = trim((string)getenv('KEYVALUE_SSL_KEY') ?: '');
+        }
+
+        if ($caFile === '') {
+            $caFile = '/run/tls/ca.crt';
+        }
+        if ($certFile === '') {
+            $certFile = '/run/tls/httpd.crt';
+        }
+        if ($keyFile === '') {
+            $keyFile = '/run/tls/httpd.key';
+        }
+
+        if (!is_readable($caFile) || !is_readable($certFile) || !is_readable($keyFile)) {
+            return [];
+        }
+
+        // peer_name should match the server certificate CN/SAN; allow override.
+        $peerName = trim((string)getenv('KEYVALUE_TLS_PEER_NAME') ?: '');
+        if ($peerName === '') {
+            $peerName = $host;
+        }
+
+        return [
+            'tls' => true,
+            'ca_file' => $caFile,
+            'cert_file' => $certFile,
+            'key_file' => $keyFile,
+            'peer_name' => $peerName,
+            'verify_peer' => true,
+            'verify_peer_name' => true,
+            'allow_self_signed' => false,
+        ];
+    }
 }
