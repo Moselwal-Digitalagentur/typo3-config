@@ -419,7 +419,11 @@ class Config implements ConfigInterface
         if ($redisHost = trim(getenv('KEYVALUE_HOST') ?: '')) {
             $isVersion12OrHigher = $this->version->getMajorVersion() >= 12;
 
-            $redisPort = (int)trim(getenv('KEYVALUE_PORT') ?: '') ?? 6379;
+            $redisPortRaw = trim((string)(getenv('KEYVALUE_PORT') ?: ''));
+            $redisPort = (int)($redisPortRaw !== '' ? $redisPortRaw : '6379');
+            if ($redisPort <= 0 || $redisPort > 65535) {
+                $redisPort = 6379;
+            }
 
             $keyvaluePassword = $this->resolveSecret('KEYVALUE_PASSWORD', $keyvaluePassword);
 
