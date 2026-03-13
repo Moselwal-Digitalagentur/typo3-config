@@ -22,4 +22,20 @@ public function autoconfigureCaching(array $additionalCachesKeyValue = [], array
 public function setAlternativeCachePath(string $path, ?array $applyForCaches = null): self;
 public function setPhpSettings(array $settings): self;
 public function setConfigPathValues(string $configPath, array $keyValuePairs): self;
+
+public function initializeDatabaseConnection(?array $options = null, string $connectionName = 'Default'): self;
+public function allowNoCacheQueryParameter(): self;
+public function forbidNoCacheQueryParameter(): self;
+public function allowInvalidCacheHashQueryParameter(): self;
+public function forbidInvalidCacheHashQueryParameter(): self;
+public function excludeQueryParameterForCacheHashCalculation(string $queryParameter): self;
+public function excludeQueryParametersForCacheHashCalculation(array $queryParameters): self;
+public function enableDeprecationLogging(): self;
+public function disableDeprecationLogging(): self;
+public function configureExceptionHandlers(string $productionExceptionHandlerClassName, string $debugExceptionHandlerClassName): self;
+public function autoconfigureSolrLogging(string $fileName = 'solr.log', ?string $forceLogLevel = null): self;
+public function addFileLogger(string $namespace, ?string $fileName = null, ?string $logLevel = null): self;
+public function setNullLogger(string $namespace, string $logLevel = \TYPO3\CMS\Core\Log\LogLevel::DEBUG): self;
+public function loadCoreSecrets(?string $dbUser = null, ?string $dbPassword = null, ?string $encriptionKey = null, ?string $installToolPassword = null): self;
+public function loadMailSecrets(?string $mailPassword = null, ?string $mailUsername = null, ?string $mailDSN = null): self;
 }
