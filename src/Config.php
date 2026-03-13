@@ -31,10 +31,7 @@ class Config implements ConfigInterface
     protected string $varPath;
     protected bool $ddevEnvironment = false;
 
-    /**
-     * @var Config
-     */
-    protected static $instance;
+    protected static ?self $instance = null;
 
     private function __construct()
     {
@@ -101,7 +98,7 @@ class Config implements ConfigInterface
         return $this;
     }
 
-    final public function initializeDatabaseConnection(?array $options = null, $connectionName = 'Default'): self
+    final public function initializeDatabaseConnection(?array $options = null, string $connectionName = 'Default'): self
     {
         $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName] = array_replace_recursive(
             $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName],
@@ -118,7 +115,6 @@ class Config implements ConfigInterface
         $GLOBALS['TYPO3_CONF_VARS']['FE']['debug'] = TRUE;
         $GLOBALS['TYPO3_CONF_VARS']['BE']['debug'] = TRUE;
         $GLOBALS['TYPO3_CONF_VARS']['SYS']['devIPmask'] = '*';
-        $GLOBALS['TYPO3_CONF_VARS']['SYS']['sqlDebug'] = 1;
         $GLOBALS['TYPO3_CONF_VARS']['SYS']['displayErrors'] = 1;
         $GLOBALS['TYPO3_CONF_VARS']['SYS']['systemLogLevel'] = 0;
         $GLOBALS['TYPO3_CONF_VARS']['SYS']['errorHandlerErrors'] = E_ALL ^ E_NOTICE;
@@ -209,7 +205,6 @@ class Config implements ConfigInterface
     {
         $GLOBALS['TYPO3_CONF_VARS']['BE']['debug'] = true;
         $GLOBALS['TYPO3_CONF_VARS']['FE']['debug'] = true;
-        $GLOBALS['TYPO3_CONF_VARS']['SYS']['sqlDebug'] = '1';
         $GLOBALS['TYPO3_CONF_VARS']['SYS']['devIPmask'] = '*';
         $GLOBALS['TYPO3_CONF_VARS']['SYS']['trustedHostsPattern'] = '.*';
         $GLOBALS['TYPO3_CONF_VARS']['SYS']['displayErrors'] = 1;
@@ -416,8 +411,10 @@ class Config implements ConfigInterface
 
     public function autoconfigureCaching(array $additionalCachesKeyValue = [], array $additionalCachesAPCU = [], string $keyvaluePassword = ''): self
     {
+        $isVersion12OrHigher = $this->version->getMajorVersion() >= 12;
+        $isVersion13OrHigher = $this->version->getMajorVersion() >= 13;
+
         if ($redisHost = trim(getenv('KEYVALUE_HOST') ?: '')) {
-            $isVersion12OrHigher = $this->version->getMajorVersion() >= 12;
 
             $redisPortRaw = trim((string)(getenv('KEYVALUE_PORT') ?: ''));
             $redisPort = (int)($redisPortRaw !== '' ? $redisPortRaw : '6379');
@@ -504,6 +501,9 @@ class Config implements ConfigInterface
             if ($isVersion12OrHigher) {
                 unset($redisCaches['pagesection'], $redisCaches['cache_pagesection']);
             }
+            if ($isVersion13OrHigher) {
+                unset($redisCaches['imagesizes']);
+            }
 
             $redisDatabase = 3;
             foreach ($redisCaches as $name => $values) {
@@ -554,6 +554,9 @@ class Config implements ConfigInterface
 
                 if ($isVersion12OrHigher) {
                     unset($apcuCaches['pagesection'], $apcuCaches['cache_pagesection']);
+                }
+                if ($isVersion13OrHigher) {
+                    unset($apcuCaches['imagesizes']);
                 }
             }
 
@@ -611,7 +614,6 @@ class Config implements ConfigInterface
         }
 
         if ($fallback !== null && trim($fallback) !== '') {
-            $sourcesChecked[] = 'fallback';
             return trim($fallback);
         }
 
@@ -801,10 +803,8 @@ class Config implements ConfigInterface
     {
         foreach ($settings as $key => $value) {
             try {
-                if (function_exists('ini_set') && !ini_get($key)) {
+                if (function_exists('ini_set')) {
                     ini_set($key, $value);
-                } else {
-                    error_log("Unable to set PHP setting $key, ini_set is disabled or already set.");
                 }
             } catch (\ErrorException $e) {
                 error_log("Error setting PHP configuration for $key: " . $e->getMessage());
