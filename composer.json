@@ -3,9 +3,9 @@
 	"description": "Fluent API to set environment-specific configuration for TYPO3",
 	"license": "MIT",
 	"require": {
-		"php": "^8.0",
+		"php": "^8.2",
 		"composer/installers": "^2.3",
-		"typo3/cms-core": "^11.0 || ^12.0 || ^13.0 || ^14.0"
+		"typo3/cms-core": "^14.0"
 	},
 	"autoload": {
 		"psr-4": {
