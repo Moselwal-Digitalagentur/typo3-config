@@ -13,7 +13,6 @@ use Moselwal\KeyValueStore\Locking\KeyValueLockingStrategy;
 use Moselwal\KeyValueStore\Session\Backend\KeyValueSessionBackend;
 use TYPO3\CMS\Core\Core\ApplicationContext;
 use TYPO3\CMS\Core\Core\Environment;
-use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Log\LogLevel;
 use TYPO3\CMS\Core\Log\Writer\FileWriter;
 use TYPO3\CMS\Core\Log\Writer\NullWriter;
@@ -26,17 +25,18 @@ use TYPO3\CMS\Core\Utility\ArrayUtility;
 class Config implements ConfigInterface
 {
     protected ApplicationContext $context;
-    protected Typo3Version $version;
     protected string $configPath;
     protected string $varPath;
     protected bool $ddevEnvironment = false;
 
-    protected static ?self $instance = null;
+    /**
+     * @var Config
+     */
+    protected static $instance;
 
     private function __construct()
     {
         $this->context = Environment::getContext();
-        $this->version = new Typo3Version();
         $this->configPath = Environment::getConfigPath();
         $this->varPath = Environment::getVarPath();
     }
@@ -68,7 +68,6 @@ class Config implements ConfigInterface
     {
         // Include presets by default
         self::$instance
-            ->forbidInvalidCacheHashQueryParameter()
             ->forbidNoCacheQueryParameter()
             ->appendContextToSiteName()
             ->useGraphicsMagick();
@@ -98,7 +97,7 @@ class Config implements ConfigInterface
         return $this;
     }
 
-    final public function initializeDatabaseConnection(?array $options = null, string $connectionName = 'Default'): self
+    final public function initializeDatabaseConnection(?array $options = null, $connectionName = 'Default'): self
     {
         $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName] = array_replace_recursive(
             $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName],
@@ -210,7 +209,6 @@ class Config implements ConfigInterface
         $GLOBALS['TYPO3_CONF_VARS']['SYS']['displayErrors'] = 1;
         $GLOBALS['TYPO3_CONF_VARS']['SYS']['belogErrorReporting'] = E_ALL;
         $GLOBALS['TYPO3_CONF_VARS']['SYS']['exceptionalErrors'] = E_ALL;
-        $GLOBALS['TYPO3_CONF_VARS']['BE']['lockSSL'] = false;
         $this->enableDeprecationLogging();
         // Log warnings to files
         $GLOBALS['TYPO3_CONF_VARS']['LOG']['writerConfiguration'][LogLevel::WARNING] = [
@@ -304,15 +302,19 @@ class Config implements ConfigInterface
         return $this;
     }
 
+    /**
+     * @deprecated Removed in TYPO3 14. Use content object exception handlers instead.
+     */
     final public function allowInvalidCacheHashQueryParameter(): self
     {
-        $GLOBALS['TYPO3_CONF_VARS']['FE']['pageNotFoundOnCHashError'] = false;
         return $this;
     }
 
+    /**
+     * @deprecated Removed in TYPO3 14. Use content object exception handlers instead.
+     */
     final public function forbidInvalidCacheHashQueryParameter(): self
     {
-        $GLOBALS['TYPO3_CONF_VARS']['FE']['pageNotFoundOnCHashError'] = true;
         return $this;
     }
 
@@ -411,11 +413,7 @@ class Config implements ConfigInterface
 
     public function autoconfigureCaching(array $additionalCachesKeyValue = [], array $additionalCachesAPCU = [], string $keyvaluePassword = ''): self
     {
-        $isVersion12OrHigher = $this->version->getMajorVersion() >= 12;
-        $isVersion13OrHigher = $this->version->getMajorVersion() >= 13;
-
         if ($redisHost = trim(getenv('KEYVALUE_HOST') ?: '')) {
-
             $redisPortRaw = trim((string)(getenv('KEYVALUE_PORT') ?: ''));
             $redisPort = (int)($redisPortRaw !== '' ? $redisPortRaw : '6379');
             if ($redisPort <= 0 || $redisPort > 65535) {
@@ -477,9 +475,6 @@ class Config implements ConfigInterface
                         'defaultLifetime' => 86400*30, // 1 month
                         'compression' => true,
                     ],
-                    'pagesection' => [
-                        'defaultLifetime' => 86400*30,
-                    ],
                     'hash' => [
                         'defaultLifetime' => 86400*30,
                     ],
@@ -498,12 +493,8 @@ class Config implements ConfigInterface
                 $additionalCachesKeyValue
             );
 
-            if ($isVersion12OrHigher) {
-                unset($redisCaches['pagesection'], $redisCaches['cache_pagesection']);
-            }
-            if ($isVersion13OrHigher) {
-                unset($redisCaches['imagesizes']);
-            }
+            // pagesection cache was removed in TYPO3 12
+            unset($redisCaches['pagesection'], $redisCaches['cache_pagesection']);
 
             $redisDatabase = 3;
             foreach ($redisCaches as $name => $values) {
@@ -544,20 +535,12 @@ class Config implements ConfigInterface
             if (!getenv('KEYVALUE_HOST')) {
                 $apcuCaches = array_merge($apcuCaches, [
                     'pages'                 => ['defaultLifetime' => 86400*30],
-                    'pagesection'           => ['defaultLifetime' => 86400*30],
                     'hash'                  => ['defaultLifetime' => 86400*30],
                     'rootline'              => ['defaultLifetime' => 86400*30],
                     'imagesizes'            => [],
                     'workspaces_cache'      => [],
                     'preview_renderer_cache'=> [],
                 ]);
-
-                if ($isVersion12OrHigher) {
-                    unset($apcuCaches['pagesection'], $apcuCaches['cache_pagesection']);
-                }
-                if ($isVersion13OrHigher) {
-                    unset($apcuCaches['imagesizes']);
-                }
             }
 
             foreach ($apcuCaches as $name => $values) {
@@ -614,6 +597,7 @@ class Config implements ConfigInterface
         }
 
         if ($fallback !== null && trim($fallback) !== '') {
+            $sourcesChecked[] = 'fallback';
             return trim($fallback);
         }
 
@@ -803,8 +787,10 @@ class Config implements ConfigInterface
     {
         foreach ($settings as $key => $value) {
             try {
-                if (function_exists('ini_set')) {
+                if (function_exists('ini_set') && !ini_get($key)) {
                     ini_set($key, $value);
+                } else {
+                    error_log("Unable to set PHP setting $key, ini_set is disabled or already set.");
                 }
             } catch (\ErrorException $e) {
                 error_log("Error setting PHP configuration for $key: " . $e->getMessage());
