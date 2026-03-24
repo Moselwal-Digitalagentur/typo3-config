@@ -13,7 +13,15 @@
 		}
 	},
 	"require-dev": {
-		"moselwal/dev": "*"
+		"moselwal/dev": "*",
+		"phpunit/phpunit": "^9.6",
+		"php-mock/php-mock-phpunit": "^2.10",
+		"phpstan/phpstan": "^2.1"
+	},
+	"scripts": {
+		"test": "phpunit",
+		"test:coverage": "phpunit --coverage-text",
+		"phpstan": "phpstan analyse"
 	},
 	"suggest": {
 		"moselwal/keyvalue-store": "*"
