@@ -1,39 +1,32 @@
-# typo3-config – Zentrale Konfigurationsbasis für TYPO3-Projekte
+# TYPO3 Config — Fluent Configuration Library
 
-**Moselwal Digitalagentur GmbH – Konfigurationen, die funktionieren.**
+[![TYPO3 11–14](https://img.shields.io/badge/TYPO3-11–14-orange.svg)](https://get.typo3.org/)
+[![PHP 8.0+](https://img.shields.io/badge/PHP-8.0%2B-blue.svg)](https://php.net/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Dieses Paket stellt eine zentrale Klasse `\Moselwal\Config` bereit, mit der TYPO3-Projekte automatisiert, sicher und effizient vorkonfiguriert werden können. Es unterstützt kontextspezifische Presets, sicheres Secret-Management, Logging, Caching, Mailer-Setups und vieles mehr.
-
----
+Fluent PHP API for environment-specific TYPO3 configuration. Provides context-based presets, secure secret management, caching, logging, mailer setup, and TLS/mTLS auto-configuration.
 
 ## Features
 
-- Automatische Konfiguration für:
-    - TYPO3 Caches (Redis/Valkey via `moselwal/keyvalue-store`, APCu)
-    - Mailer (SMTP, Mailpit)
-    - Logging (kontextabhängig)
-    - Image-Engines (ImageMagick, GraphicsMagick)
-    - PHP Settings
-- Presets für `Production`, `CLI`, `Development` & `Testing`
-- Sichere `resolveSecret()`-Kaskade (ENV, Dateien, Docker Secrets, Fallbacks)
-- TLS/mTLS Auto-Konfiguration für Datenbank und Redis/Valkey
-- Fluent Interface – einfach & lesbar
-- Vollständiges `ConfigInterface` mit allen öffentlichen Methoden
-- TYPO3 v11, v12, v13 und v14 kompatibel (automatische Versionsweichen)
-
----
+- **Context-Based Presets** — Auto-configuration for Production, Development, CLI, and Testing environments
+- **Secret Resolution Cascade** — Secure secret loading from `_FILE` env vars → `/run/secrets/` → `getenv()` → fallback
+- **Caching Auto-Configuration** — Redis/Valkey (via `moselwal/keyvalue-store`), APCu, or file backends
+- **TLS/mTLS Auto-Configuration** — Automatic certificate discovery for database and Redis connections
+- **Mailer Setup** — SMTP and Mailpit configuration helpers
+- **Logging Presets** — Context-aware logging configuration
+- **Image Engine** — ImageMagick and GraphicsMagick configuration
+- **Fluent Interface** — Chainable API for readable configuration
+- **Multi-Version Support** — Compatible with TYPO3 11, 12, 13, and 14
 
 ## Installation
-
-Mit Composer installieren:
 
 ```bash
 composer require moselwal/typo3-config
 ```
 
----
+## Quick Start
 
-## Beispiel: Einbindung in config/config.php
+In your `config/config.php`:
 
 ```php
 <?php
@@ -46,53 +39,37 @@ Config::initialize()
     ->autoconfigureCaching();
 ```
 
----
+## Secret Management
 
-## Secrets in /run/secrets/ nutzen
+Secrets are resolved through a cascading lookup:
 
-Lege deine Secrets in Dateien ab (z.B. durch Docker Secrets oder Kubernetes Mounts):
+1. File path from env var (`DB_PASSWORD_FILE`)
+2. Default secret file (`/run/secrets/db_password`)
+3. Direct env var (`getenv('DB_PASSWORD')`)
+4. Fallback parameter (optional)
 
 ```bash
+# Docker secrets or Kubernetes mounts
 echo "supersecret" > /run/secrets/db_password
 ```
-
-Diese Datei wird dann automatisch von `resolveSecret()` geladen:
 
 ```php
 Config::get()->loadCoreSecrets();
 ```
 
-Folgende Quellen werden automatisch geprüft (Reihenfolge):
+No secrets need to be committed to Git or stored in `.env` files.
 
-1. Datei über ENV-Variable (`DB_PASSWORD_FILE`)
-2. Fallback-Datei (`/run/secrets/db_password`)
-3. Direktwert via `getenv('DB_PASSWORD')`
-4. Fallback-Parameter (optionaler Funktionsparameter)
+## Available Presets
 
----
+| Method | Description |
+|--------|-------------|
+| `applyDefaults()` | Auto-selects preset based on TYPO3 context |
+| `useCliPreset()` | Optimized for CLI calls with debug output |
+| `useDevelopmentPreset()` | Development environment settings |
+| `useProductionPreset()` | Production with APP_ROOT (container) |
+| `useProductionPresetVHost()` | Production with VHost-based setup |
 
-## Verfügbare Presets
-
-| Methode | Beschreibung |
-|---------|-------------|
-| `applyDefaults()` | Automatisch je nach Kontext |
-| `useCliPreset()` | Für CLI-Calls, Debug-optimiert |
-| `useDevelopmentPreset()` | Für Dev-Umgebungen |
-| `useProductionPreset()` | Für produktive Systeme mit APP_ROOT |
-| `useProductionPresetVHost()` | Für produktive VHost-basierte Setups |
-
----
-
-## Sicherheitsfeatures
-
-- Keine Secrets im Git oder im ENV-File notwendig
-- Secrets nur zur Laufzeit gelesen
-- TLS/mTLS Auto-Konfiguration wenn Zertifikate unter `/run/tls/` vorhanden
-- `setPhpSettings()` überschreibt bestehende Werte zuverlässig
-
----
-
-## Beispielhafte Nutzung
+## Usage Example
 
 ```php
 Config::get()
@@ -108,70 +85,51 @@ Config::get()
     ]);
 ```
 
----
-
-## TYPO3-Versionskompatibilität
+## TYPO3 Version Compatibility
 
 | TYPO3 Version | Status |
 |---------------|--------|
-| v11 | Unterstützt |
-| v12 | Unterstützt (`pagesection`-Cache automatisch entfernt) |
-| v13 | Unterstützt (`imagesizes`-Cache automatisch entfernt) |
-| v14 | Unterstützt |
+| v11 | Supported |
+| v12 | Supported (`pagesection` cache auto-removed) |
+| v13 | Supported (`imagesizes` cache auto-removed) |
+| v14 | Supported |
 
----
-
-## Entwicklung & Qualität
-
-```bash
-composer install           # Abhängigkeiten installieren
-composer test              # PHPUnit Tests ausführen
-composer test:coverage     # Tests mit Coverage-Report
-composer phpstan           # PHPStan Level 5 statische Analyse
-```
-
-- PHPUnit 9.6 Testsuite mit 35 Tests und >120 Assertions
-- PHPStan Level 5 statische Analyse
-- Line-Coverage >70% auf `src/Config.php`
-- Namespace-basiertes Function-Mocking via `php-mock/php-mock-phpunit`
-
----
-
-## Ordnerstruktur
+## Architecture
 
 ```
 src/
-├── Config.php              ← Hauptklasse (Singleton, Fluent API)
-└── ConfigInterface.php     ← Vollständiger Interface-Vertrag
+├── Config.php              # Main class (Singleton, Fluent API)
+└── ConfigInterface.php     # Public contract interface
 tests/
-├── ConfigTestCase.php      ← Basis-Testklasse (Singleton-Reset, $GLOBALS-Isolation)
-├── TestableConfig.php      ← Test-Subklasse (Versions-Injection, resolveSecret-Zugang)
-├── SingletonTest.php
-├── InterfaceCompletenessTest.php
-├── PhpSettingsTest.php
-├── CacheConfigurationTest.php
-├── SecretResolutionTest.php
-├── PresetTest.php
-└── MtlsConfigurationTest.php
+├── ConfigTestCase.php      # Base test class (singleton reset, $GLOBALS isolation)
+├── TestableConfig.php      # Test subclass for version injection
+└── ...                     # 35+ tests with >120 assertions
 ```
 
----
+- **Singleton pattern** via `Config::initialize()` / `Config::get()`
+- **Namespace**: `Moselwal\` → `src/` (PSR-4)
+- Late static binding (`new static()`) for project-specific extensions
 
-## Lizenz
+## Development
 
-MIT
+```bash
+composer install
+composer test              # PHPUnit tests
+composer test:coverage     # Tests with coverage report
+composer phpstan           # PHPStan Level 5 static analysis
+```
 
----
+## Dependencies
 
-## Über Moselwal
+| Package | Type | Purpose |
+|---------|------|---------|
+| `moselwal/keyvalue-store` | Optional | Redis/Valkey cache and session backends |
+| `moselwal/dev` | Dev | Shared QA tooling |
 
-Die Moselwal Digitalagentur GmbH steht für sichere, effiziente und automatisierte TYPO3-Infrastrukturen mit hoher Qualität, DevSecOps-Kultur und nachhaltigen Lösungen – speziell für Hidden Champions und Kliniken.
+## Related
 
-*„Wir transformieren digitale Prozesse – mit Sorgfalt, Struktur und Sicherheit."*
+- [keyvalue-store](../keyvalue-store) — Redis/Valkey integration used by the caching auto-configuration
 
----
+## License
 
-## Kontakt
-
-**Moselwal Digitalagentur GmbH**
-Monheim am Rhein, Deutschland
+MIT — see [LICENSE](LICENSE) for details.
