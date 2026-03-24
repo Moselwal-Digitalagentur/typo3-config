@@ -1,5 +1,5 @@
 parameters:
-    level: 5
+    level: 8
     paths:
         - src
     ignoreErrors:
@@ -8,5 +8,3 @@ parameters:
         - '#unknown class Helhum\\ConfigLoader#'
         - '#Unsafe usage of new static\(\)#'
         - '#should return static\(Moselwal\\Config\) but returns Moselwal\\Config#'
-        - '#Variable \$redisCaches on left side of \?\? is never defined#'
-        - '#Variable \$apcuCaches on left side of \?\? is never defined#'

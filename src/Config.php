@@ -13,6 +13,7 @@ use Moselwal\KeyValueStore\Locking\KeyValueLockingStrategy;
 use Moselwal\KeyValueStore\Session\Backend\KeyValueSessionBackend;
 use TYPO3\CMS\Core\Core\ApplicationContext;
 use TYPO3\CMS\Core\Core\Environment;
+use TYPO3\CMS\Core\Information\Typo3Version;
 use TYPO3\CMS\Core\Log\LogLevel;
 use TYPO3\CMS\Core\Log\Writer\FileWriter;
 use TYPO3\CMS\Core\Log\Writer\NullWriter;
@@ -25,6 +26,7 @@ use TYPO3\CMS\Core\Utility\ArrayUtility;
 class Config implements ConfigInterface
 {
     protected ApplicationContext $context;
+    protected Typo3Version $version;
     protected string $configPath;
     protected string $varPath;
     protected bool $ddevEnvironment = false;
@@ -37,6 +39,7 @@ class Config implements ConfigInterface
     private function __construct()
     {
         $this->context = Environment::getContext();
+        $this->version = new Typo3Version();
         $this->configPath = Environment::getConfigPath();
         $this->varPath = Environment::getVarPath();
     }
@@ -97,8 +100,11 @@ class Config implements ConfigInterface
         return $this;
     }
 
-    final public function initializeDatabaseConnection(?array $options = null, $connectionName = 'Default'): self
+    final public function initializeDatabaseConnection(?array $options = null, string $connectionName = 'Default'): self
     {
+        if ($options === null) {
+            return $this;
+        }
         $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName] = array_replace_recursive(
             $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections'][$connectionName],
             $options
@@ -496,6 +502,11 @@ class Config implements ConfigInterface
             // pagesection cache was removed in TYPO3 12
             unset($redisCaches['pagesection'], $redisCaches['cache_pagesection']);
 
+            // imagesizes cache was removed in TYPO3 13
+            if ($this->version->getMajorVersion() >= 13) {
+                unset($redisCaches['imagesizes']);
+            }
+
             $redisDatabase = 3;
             foreach ($redisCaches as $name => $values) {
                 $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations'][$name]['backend']
@@ -573,6 +584,10 @@ class Config implements ConfigInterface
         ?string $key = null,
         ?string $fallback = null
     ): ?string {
+        if ($key === null) {
+            return $fallback;
+        }
+
         $envFileKey = strtoupper($key) . '_FILE';
         $defaultFile = '/run/secrets/' . strtolower($key);
 
@@ -597,7 +612,6 @@ class Config implements ConfigInterface
         }
 
         if ($fallback !== null && trim($fallback) !== '') {
-            $sourcesChecked[] = 'fallback';
             return trim($fallback);
         }
 
@@ -787,10 +801,10 @@ class Config implements ConfigInterface
     {
         foreach ($settings as $key => $value) {
             try {
-                if (function_exists('ini_set') && !ini_get($key)) {
+                if (function_exists('ini_set')) {
                     ini_set($key, $value);
                 } else {
-                    error_log("Unable to set PHP setting $key, ini_set is disabled or already set.");
+                    error_log("Unable to set PHP setting $key: ini_set is disabled.");
                 }
             } catch (\ErrorException $e) {
                 error_log("Error setting PHP configuration for $key: " . $e->getMessage());
