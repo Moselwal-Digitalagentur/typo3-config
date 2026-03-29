@@ -28,6 +28,7 @@ public function setConfigPathValues(string $configPath, array $keyValuePairs): s
 public function initializeDatabaseConnection(?array $options = null, string $connectionName = 'Default'): self;
 public function allowNoCacheQueryParameter(): self;
 public function forbidNoCacheQueryParameter(): self;
+public function useBackendEntryPoint(string $entryPoint, ?string $cookieDomain = null): self;
 public function allowInvalidCacheHashQueryParameter(): self;
 public function forbidInvalidCacheHashQueryParameter(): self;
 public function excludeQueryParameterForCacheHashCalculation(string $queryParameter): self;

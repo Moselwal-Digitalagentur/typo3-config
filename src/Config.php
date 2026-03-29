@@ -309,6 +309,41 @@ class Config implements ConfigInterface
     }
 
     /**
+     * Set a custom backend entry point URL or path.
+     *
+     * Supports:
+     * - Custom path: '/backend' or '/my-admin'
+     * - Subdomain:   'https://admin.example.org'
+     *
+     * When using a subdomain, cookieDomain is automatically set so that
+     * backend users can preview frontend pages and use the admin panel.
+     *
+     * @since TYPO3 13.0
+     * @return $this
+     */
+    final public function useBackendEntryPoint(string $entryPoint, ?string $cookieDomain = null): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['BE']['entryPoint'] = $entryPoint;
+
+        // Auto-detect cookieDomain from subdomain entry points
+        if ($cookieDomain !== null) {
+            $GLOBALS['TYPO3_CONF_VARS']['SYS']['cookieDomain'] = $cookieDomain;
+        } elseif (str_starts_with($entryPoint, 'https://') || str_starts_with($entryPoint, 'http://')) {
+            $host = parse_url($entryPoint, PHP_URL_HOST);
+            if ($host !== null && $host !== false) {
+                // Extract root domain for cookie sharing (e.g. admin.moselwal.de -> .moselwal.de)
+                $parts = explode('.', $host);
+                if (count($parts) >= 2) {
+                    $rootDomain = '.' . implode('.', array_slice($parts, -2));
+                    $GLOBALS['TYPO3_CONF_VARS']['SYS']['cookieDomain'] = $rootDomain;
+                }
+            }
+        }
+
+        return $this;
+    }
+
+    /**
      * @deprecated Removed in TYPO3 14. Use content object exception handlers instead.
      */
     final public function allowInvalidCacheHashQueryParameter(): self
