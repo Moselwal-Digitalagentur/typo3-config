@@ -329,6 +329,25 @@ class Config implements ConfigInterface
      * @since TYPO3 13.0
      * @return $this
      */
+    /**
+     * Configure TYPO3 to trust a reverse proxy (e.g. Caddy, Nginx, HAProxy).
+     *
+     * Sets reverseProxyIP, reverseProxySSL, and reverseProxyHeaderMultiValue
+     * so TYPO3 correctly detects HTTPS, client IPs, and host headers behind
+     * a reverse proxy. Without this, Secure cookies won't work and the
+     * backend login will fail silently.
+     *
+     * @param string $trustedIPs Comma-separated proxy IPs or '*' for all
+     * @return $this
+     */
+    final public function useReverseProxy(string $trustedIPs = '*'): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['reverseProxyIP'] = $trustedIPs;
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['reverseProxySSL'] = $trustedIPs;
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['reverseProxyHeaderMultiValue'] = 'first';
+        return $this;
+    }
+
     final public function useBackendEntryPoint(string $entryPoint, ?string $cookieDomain = null): self
     {
         $GLOBALS['TYPO3_CONF_VARS']['BE']['entryPoint'] = $entryPoint;
