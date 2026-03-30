@@ -333,19 +333,13 @@ class Config implements ConfigInterface
     {
         $GLOBALS['TYPO3_CONF_VARS']['BE']['entryPoint'] = $entryPoint;
 
-        // Auto-detect cookieDomain from subdomain entry points
+        // Only set cookieDomain when explicitly provided.
+        // Auto-detection is error-prone with multi-level subdomains.
+        // Without cookieDomain, TYPO3 uses the request domain for cookies
+        // which is correct for the backend login. For frontend preview by
+        // backend users, set cookieDomain explicitly (e.g. '.moselwal.de').
         if ($cookieDomain !== null) {
             $GLOBALS['TYPO3_CONF_VARS']['SYS']['cookieDomain'] = $cookieDomain;
-        } elseif (str_starts_with($entryPoint, 'https://') || str_starts_with($entryPoint, 'http://')) {
-            $host = parse_url($entryPoint, PHP_URL_HOST);
-            if ($host !== null && $host !== false) {
-                // Extract shared domain for cookie sharing.
-                // Remove first subdomain label (e.g. cms.dev.moselwal.localhost -> .dev.moselwal.localhost)
-                $parts = explode('.', $host);
-                if (count($parts) >= 2) {
-                    $rootDomain = '.' . implode('.', array_slice($parts, 1));
-                    $GLOBALS['TYPO3_CONF_VARS']['SYS']['cookieDomain'] = $rootDomain;
-                }
             }
         }
 
