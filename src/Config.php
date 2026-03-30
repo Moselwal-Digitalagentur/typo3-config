@@ -340,7 +340,6 @@ class Config implements ConfigInterface
         // backend users, set cookieDomain explicitly (e.g. '.moselwal.de').
         if ($cookieDomain !== null) {
             $GLOBALS['TYPO3_CONF_VARS']['SYS']['cookieDomain'] = $cookieDomain;
-            }
         }
 
         return $this;
