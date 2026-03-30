@@ -339,10 +339,11 @@ class Config implements ConfigInterface
         } elseif (str_starts_with($entryPoint, 'https://') || str_starts_with($entryPoint, 'http://')) {
             $host = parse_url($entryPoint, PHP_URL_HOST);
             if ($host !== null && $host !== false) {
-                // Extract root domain for cookie sharing (e.g. admin.moselwal.de -> .moselwal.de)
+                // Extract shared domain for cookie sharing.
+                // Remove first subdomain label (e.g. cms.dev.moselwal.localhost -> .dev.moselwal.localhost)
                 $parts = explode('.', $host);
                 if (count($parts) >= 2) {
-                    $rootDomain = '.' . implode('.', array_slice($parts, -2));
+                    $rootDomain = '.' . implode('.', array_slice($parts, 1));
                     $GLOBALS['TYPO3_CONF_VARS']['SYS']['cookieDomain'] = $rootDomain;
                 }
             }
