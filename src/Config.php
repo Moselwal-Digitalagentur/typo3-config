@@ -64,6 +64,9 @@ class Config implements ConfigInterface
      */
     public static function get(): self
     {
+        if (self::$instance === null) {
+            return self::initialize();
+        }
         return self::$instance;
     }
 
