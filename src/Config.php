@@ -69,6 +69,11 @@ class Config implements ConfigInterface
 
     public function applyDefaults(): self
     {
+        // Ensure DB driver is always set (settings.php might be empty after install-tool reset)
+        if (empty($GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['driver'])) {
+            $GLOBALS['TYPO3_CONF_VARS']['DB']['Connections']['Default']['driver'] = 'pdo_mysql';
+        }
+
         // Include presets by default
         self::$instance
             ->forbidNoCacheQueryParameter()
