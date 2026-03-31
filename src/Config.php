@@ -750,14 +750,21 @@ class Config implements ConfigInterface
             return;
         }
 
+        // PHP 8.5+: Pdo\Mysql constants, fallback to PDO constants for older PHP
+        $sslCa = class_exists(\Pdo\Mysql::class) ? \Pdo\Mysql::ATTR_SSL_CA : \PDO::MYSQL_ATTR_SSL_CA;
+        $sslCert = class_exists(\Pdo\Mysql::class) ? \Pdo\Mysql::ATTR_SSL_CERT : \PDO::MYSQL_ATTR_SSL_CERT;
+        $sslKey = class_exists(\Pdo\Mysql::class) ? \Pdo\Mysql::ATTR_SSL_KEY : \PDO::MYSQL_ATTR_SSL_KEY;
+
         $driverOptions = [
-            \PDO::MYSQL_ATTR_SSL_CA => $caFile,
-            \PDO::MYSQL_ATTR_SSL_CERT => $certFile,
-            \PDO::MYSQL_ATTR_SSL_KEY => $keyFile,
+            $sslCa => $caFile,
+            $sslCert => $certFile,
+            $sslKey => $keyFile,
         ];
 
         // Available in mysqlnd; if not defined, we skip it.
-        if (defined('PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT')) {
+        if (class_exists(\Pdo\Mysql::class) && defined('Pdo\Mysql::ATTR_SSL_VERIFY_SERVER_CERT')) {
+            $driverOptions[\Pdo\Mysql::ATTR_SSL_VERIFY_SERVER_CERT] = true;
+        } elseif (defined('PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT')) {
             $driverOptions[\PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = true;
         }
 
