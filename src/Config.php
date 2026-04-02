@@ -108,6 +108,9 @@ class Config implements ConfigInterface
         return $this;
     }
 
+    /**
+     * @param array<string, mixed>|null $options
+     */
     final public function initializeDatabaseConnection(?array $options = null, string $connectionName = 'Default'): self
     {
         if ($options === null) {
@@ -244,6 +247,9 @@ class Config implements ConfigInterface
         return $this;
     }
 
+    /**
+     * @param array<string, int> $forbiddenKeys
+     */
     final public function useConfigLoader(array $forbiddenKeys = ['password' => 1,'transport_smtp_password' => 1, 'encryptionKey' => 1, 'installToolPassword' => 1]): self
     {
         // Automatic Configuration overrides by conventional named environment variables
@@ -386,6 +392,9 @@ class Config implements ConfigInterface
         return $this;
     }
 
+    /**
+     * @param array<int, string> $queryParameters
+     */
     final public function excludeQueryParametersForCacheHashCalculation(array $queryParameters): self
     {
         $GLOBALS['TYPO3_CONF_VARS']['FE']['cacheHash']['excludedParameters'] = array_merge(
@@ -473,6 +482,10 @@ class Config implements ConfigInterface
         return $this;
     }
 
+    /**
+     * @param array<string, array<string, mixed>> $additionalCachesKeyValue
+     * @param array<string, array<string, mixed>> $additionalCachesAPCU
+     */
     public function autoconfigureCaching(array $additionalCachesKeyValue = [], array $additionalCachesAPCU = [], string $keyvaluePassword = ''): self
     {
         if ($redisHost = trim(getenv('KEYVALUE_HOST') ?: '')) {
@@ -531,7 +544,7 @@ class Config implements ConfigInterface
             }
 
             $redisCaches = array_merge(
-                $redisCaches ?? [
+                [
                     // Core
                     'pages' => [
                         'defaultLifetime' => 86400*30, // 1 month
@@ -589,7 +602,7 @@ class Config implements ConfigInterface
 
         if (function_exists('apcu_enabled') && apcu_enabled()) {
 
-            $apcuCaches = array_merge($apcuCaches ?? [
+            $apcuCaches = array_merge([
                 'extbase'        => ['defaultLifetime' => 86400*30],
                 'l10n'           => ['defaultLifetime' => 86400*30],
                 'ratelimiter'    => [],
@@ -779,14 +792,14 @@ class Config implements ConfigInterface
     /**
      * @param string|null $dbUser
      * @param string|null $dbPassword
-     * @param string|null $encriptionKey
+     * @param string|null $encryptionKey
      * @param string|null $installToolPassword
      * @return $this
      */
     final public function loadCoreSecrets(
         ?string $dbUser = null,
         ?string $dbPassword = null,
-        ?string $encriptionKey = null,
+        ?string $encryptionKey = null,
         ?string $installToolPassword = null,
     ): self
     {
@@ -799,7 +812,7 @@ class Config implements ConfigInterface
         $this->autoconfigureDatabaseMtls('Default');
 
         $GLOBALS['TYPO3_CONF_VARS']['SYS']['encryptionKey'] =
-            $this->resolveSecret('ENCRYPTION_KEY', $encriptionKey);
+            $this->resolveSecret('ENCRYPTION_KEY', $encryptionKey);
 
         $GLOBALS['TYPO3_CONF_VARS']['BE']['installToolPassword'] =
             $this->resolveSecret( 'INSTALL_TOOL_PASSWORD', $installToolPassword);
@@ -824,8 +837,7 @@ class Config implements ConfigInterface
     /**
      * Useful for distributed systems to put caches outside an NFS mount.
      *
-     * @param string $path
-     * @param array|null $applyForCaches
+     * @param array<int, string>|null $applyForCaches
      * @return $this
      */
     public function setAlternativeCachePath(string $path, ?array $applyForCaches = null): self
@@ -857,7 +869,7 @@ class Config implements ConfigInterface
      *      'upload_max_filesize' => '100M',
      * ]);
      *
-     * @param array $settings An associative array of PHP settings.
+     * @param array<string, string> $settings An associative array of PHP settings.
      * @return $this
      */
     final public function setPhpSettings(array $settings): self
@@ -890,7 +902,7 @@ class Config implements ConfigInterface
      *   ]);
      *
      * @param string $configPath A string representing the path to the configuration option.
-     * @param array $keyValuePairs An associative array of key-value pairs to set within the specified path.
+     * @param array<string, mixed> $keyValuePairs An associative array of key-value pairs to set within the specified path.
      * @return $this
      */
     public function setConfigPathValues(string $configPath, array $keyValuePairs): self
@@ -922,6 +934,8 @@ class Config implements ConfigInterface
      *     name candidates: KEYVALUE_SSL_NAME, first label of KEYVALUE_HOST, fallback "httpd"
      *  2) Explicit paths: KEYVALUE_SSL_CA / KEYVALUE_SSL_CERT / KEYVALUE_SSL_KEY
      *  3) Conventional defaults: /run/tls/ca.crt + /run/tls/httpd.crt + /run/tls/httpd.key
+     *
+     * @return array<string, mixed>
      */
     private function autoconfigureKeyValueMtlsOptions(string $host): array
     {
