@@ -1,7 +1,7 @@
 # TYPO3 Config — Fluent Configuration Library
 
-[![TYPO3 11–14](https://img.shields.io/badge/TYPO3-11–14-orange.svg)](https://get.typo3.org/)
-[![PHP 8.0+](https://img.shields.io/badge/PHP-8.0%2B-blue.svg)](https://php.net/)
+[![TYPO3 14](https://img.shields.io/badge/TYPO3-14.x-orange.svg)](https://get.typo3.org/)
+[![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%2B-blue.svg)](https://php.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Fluent PHP API for environment-specific TYPO3 configuration. Provides context-based presets, secure secret management, caching, logging, mailer setup, and TLS/mTLS auto-configuration.
@@ -16,7 +16,7 @@ Fluent PHP API for environment-specific TYPO3 configuration. Provides context-ba
 - **Logging Presets** — Context-aware logging configuration
 - **Image Engine** — ImageMagick and GraphicsMagick configuration
 - **Fluent Interface** — Chainable API for readable configuration
-- **Multi-Version Support** — Compatible with TYPO3 11, 12, 13, and 14
+- **TYPO3 14.x** — getestet auf der aktuellen LTS-Linie
 
 ## Installation
 
