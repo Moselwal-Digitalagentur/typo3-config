@@ -7,6 +7,12 @@
 		"composer/installers": "^2.3",
 		"typo3/cms-core": "^14.0"
 	},
+	"repositories": [
+		{
+			"type": "composer",
+			"url": "https://gitlab.moselwal.io/api/v4/group/175/-/packages/composer/packages.json"
+		}
+	],
 	"autoload": {
 		"psr-4": {
 			"Moselwal\\": "src"
@@ -28,7 +34,9 @@
 		"allow-plugins": {
 			"composer/installers": true,
 			"typo3/cms-composer-installers": true,
-			"typo3/class-alias-loader": true
+			"typo3/class-alias-loader": true,
+			"phpstan/extension-installer": true,
+			"sbuerk/typo3-cmscomposerinstallers-testingframework-bridge": true
 		}
 	}
 }
