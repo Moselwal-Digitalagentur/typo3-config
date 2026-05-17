@@ -3,7 +3,7 @@
 	"description": "Fluent API to set environment-specific configuration for TYPO3",
 	"license": "MIT",
 	"require": {
-		"php": "^8.2",
+		"php": "^8.5",
 		"composer/installers": "^2.3",
 		"typo3/cms-core": "^14.0"
 	},
@@ -13,7 +13,7 @@
 		}
 	},
 	"require-dev": {
-		"moselwal/dev": "^4.0",
+		"moselwal/dev": "^5.0",
 		"php-mock/php-mock-phpunit": "^2.10"
 	},
 	"scripts": {
