@@ -13,10 +13,8 @@
 		}
 	},
 	"require-dev": {
-		"moselwal/dev": "*",
-		"phpunit/phpunit": "^9.6",
-		"php-mock/php-mock-phpunit": "^2.10",
-		"phpstan/phpstan": "^2.1"
+		"moselwal/dev": "^4.0",
+		"php-mock/php-mock-phpunit": "^2.10"
 	},
 	"scripts": {
 		"test": "phpunit",
@@ -24,10 +22,11 @@
 		"phpstan": "phpstan analyse"
 	},
 	"suggest": {
-		"moselwal/keyvalue-store": "*"
+		"moselwal/keyvalue-store": "Redis/Valkey integration for caching, sessions, and locking"
 	},
 	"config": {
 		"allow-plugins": {
+			"composer/installers": true,
 			"typo3/cms-composer-installers": true,
 			"typo3/class-alias-loader": true
 		}
