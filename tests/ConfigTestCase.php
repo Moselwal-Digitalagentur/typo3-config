@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Moselwal\Tests;
 
-use Moselwal\Config;
 use PHPUnit\Framework\TestCase;
 use TYPO3\CMS\Core\Core\ApplicationContext;
 use TYPO3\CMS\Core\Core\Environment;
@@ -18,9 +17,6 @@ abstract class ConfigTestCase extends TestCase
         parent::setUp();
 
         $this->originalConfVars = $GLOBALS['TYPO3_CONF_VARS'] ?? [];
-
-        // Reset singleton instance via Reflection
-        $this->resetSingleton();
 
         // Initialize TYPO3 Environment with test values
         Environment::initialize(
@@ -59,14 +55,7 @@ abstract class ConfigTestCase extends TestCase
     protected function tearDown(): void
     {
         $GLOBALS['TYPO3_CONF_VARS'] = $this->originalConfVars;
-        $this->resetSingleton();
 
         parent::tearDown();
-    }
-
-    protected function resetSingleton(): void
-    {
-        $ref = new \ReflectionProperty(Config::class, 'instance');
-        $ref->setValue(null, null);
     }
 }

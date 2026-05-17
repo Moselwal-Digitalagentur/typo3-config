@@ -16,7 +16,7 @@ class PresetTest extends ConfigTestCase
      */
     public function useCliPresetSetsDebugFlags(): void
     {
-        $instance = Config::initialize(false);
+        $instance = new Config();
         $instance->useCliPreset();
 
         self::assertTrue($GLOBALS['TYPO3_CONF_VARS']['FE']['debug']);
@@ -34,7 +34,7 @@ class PresetTest extends ConfigTestCase
         // Ensure LOG writerConfiguration exists for array_replace_recursive
         $GLOBALS['TYPO3_CONF_VARS']['LOG']['writerConfiguration'] = [];
 
-        $instance = Config::initialize(false);
+        $instance = new Config();
         $instance->useProductionPreset();
 
         self::assertFalse($GLOBALS['TYPO3_CONF_VARS']['BE']['debug']);
@@ -48,7 +48,7 @@ class PresetTest extends ConfigTestCase
      */
     public function useDevelopmentPresetEnablesDebugAndMailpit(): void
     {
-        $instance = Config::initialize(false);
+        $instance = new Config();
         $instance->useDevelopmentPreset();
 
         self::assertTrue($GLOBALS['TYPO3_CONF_VARS']['BE']['debug']);
@@ -67,7 +67,7 @@ class PresetTest extends ConfigTestCase
     {
         $GLOBALS['TYPO3_CONF_VARS']['LOG']['writerConfiguration'] = [];
 
-        $instance = Config::initialize(false);
+        $instance = new Config();
         $instance->useProductionPresetVHost();
 
         self::assertFalse($GLOBALS['TYPO3_CONF_VARS']['BE']['debug']);
@@ -87,7 +87,7 @@ class PresetTest extends ConfigTestCase
      */
     public function useCliPresetDisablesSSLVerification(): void
     {
-        $instance = Config::initialize(false);
+        $instance = new Config();
         $instance->useCliPreset();
 
         self::assertSame(0, $GLOBALS['TYPO3_CONF_VARS']['HTTP']['ssl_verify_host']);
@@ -99,7 +99,7 @@ class PresetTest extends ConfigTestCase
      */
     public function enableDeprecationLoggingSetsCorrectFlag(): void
     {
-        $instance = Config::initialize(false);
+        $instance = new Config();
         $instance->enableDeprecationLogging();
 
         self::assertFalse(
@@ -114,7 +114,7 @@ class PresetTest extends ConfigTestCase
      */
     public function disableDeprecationLoggingSetsCorrectFlag(): void
     {
-        $instance = Config::initialize(false);
+        $instance = new Config();
         $instance->disableDeprecationLogging();
 
         self::assertTrue(
@@ -129,7 +129,7 @@ class PresetTest extends ConfigTestCase
      */
     public function useDevelopmentPresetSetsLockSSLFalse(): void
     {
-        $instance = Config::initialize(false);
+        $instance = new Config();
         $instance->useDevelopmentPreset();
 
         self::assertFalse($GLOBALS['TYPO3_CONF_VARS']['BE']['lockSSL']);
@@ -142,7 +142,7 @@ class PresetTest extends ConfigTestCase
     {
         $GLOBALS['TYPO3_CONF_VARS']['LOG']['writerConfiguration'] = [];
 
-        $instance = Config::initialize(false);
+        $instance = new Config();
         $instance->useProductionPreset();
 
         $expected = E_ERROR | E_PARSE | E_CORE_ERROR | E_COMPILE_ERROR | E_USER_ERROR | E_RECOVERABLE_ERROR;

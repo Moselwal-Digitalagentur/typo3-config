@@ -17,9 +17,14 @@ class InterfaceCompletenessTest extends TestCase
 
         $configMethods = [];
         foreach ($configReflection->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
-            if ($method->getDeclaringClass()->getName() === Config::class) {
-                $configMethods[] = $method->getName();
+            if ($method->getDeclaringClass()->getName() !== Config::class) {
+                continue;
             }
+            // Constructors are an implementation concern; interfaces don't declare them.
+            if ($method->isConstructor()) {
+                continue;
+            }
+            $configMethods[] = $method->getName();
         }
 
         $interfaceMethods = [];

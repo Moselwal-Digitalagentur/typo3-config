@@ -23,7 +23,7 @@ class PhpSettingsTest extends ConfigTestCase
             ->with('ini_set')
             ->willReturn(true);
 
-        $config = Config::initialize(false);
+        $config = new Config();
         $result = $config->setPhpSettings(['max_execution_time' => '300']);
 
         self::assertSame($config, $result, 'setPhpSettings must return $this for fluent chaining');
@@ -36,7 +36,7 @@ class PhpSettingsTest extends ConfigTestCase
             ->with('ini_set')
             ->willReturn(false);
 
-        $config = Config::initialize(false);
+        $config = new Config();
         $result = $config->setPhpSettings(['max_execution_time' => '300']);
 
         self::assertSame($config, $result, 'setPhpSettings must return $this even when ini_set is disabled');

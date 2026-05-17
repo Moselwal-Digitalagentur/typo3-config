@@ -11,7 +11,7 @@ class TestableConfig extends Config
 {
     public static function initializeWithVersion(int $majorVersion): self
     {
-        $instance = static::initialize(false);
+        $instance = new self();
 
         // Override the version via Reflection
         $versionMock = new class($majorVersion) extends Typo3Version {

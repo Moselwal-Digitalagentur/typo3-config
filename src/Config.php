@@ -31,43 +31,12 @@ class Config implements ConfigInterface
     protected string $varPath;
     protected bool $ddevEnvironment = false;
 
-    /**
-     * @var Config
-     */
-    protected static $instance;
-
-    private function __construct()
+    public function __construct()
     {
         $this->context = Environment::getContext();
         $this->version = new Typo3Version();
         $this->configPath = Environment::getConfigPath();
         $this->varPath = Environment::getVarPath();
-    }
-
-    /**
-     * @return static
-     */
-    public static function initialize(bool $applyDefaults = true): self
-    {
-        // Late static binding
-        self::$instance = new static();
-        if ($applyDefaults === false) {
-            return self::$instance;
-        }
-        return self::$instance
-            // use sensible default based on Context
-            ->applyDefaults();
-    }
-
-    /**
-     * @return static
-     */
-    public static function get(): self
-    {
-        if (self::$instance === null) {
-            return self::initialize();
-        }
-        return self::$instance;
     }
 
     public function applyDefaults(): self
@@ -78,32 +47,37 @@ class Config implements ConfigInterface
         }
 
         // Include presets by default
-        self::$instance
+        $this
             ->forbidNoCacheQueryParameter()
             ->appendContextToSiteName()
             ->useGraphicsMagick();
 
         if (php_sapi_name() === 'cli') {
-            self::$instance->useCliPreset();
-        } elseif (self::$instance->context->isDevelopment() || self::$instance->context->isTesting()) {
-            self::$instance->useDevelopmentPreset();
-        } elseif (self::$instance->context->isProduction()) {
+            $this->useCliPreset();
+        } elseif ($this->context->isDevelopment() || $this->context->isTesting()) {
+            $this->useDevelopmentPreset();
+        } elseif ($this->context->isProduction()) {
             if (!empty(getenv('APP_ROOT'))) {
-                self::$instance->useProductionPreset();
+                $this->useProductionPreset();
             } else {
-                self::$instance->useProductionPresetVHost();
+                $this->useProductionPresetVHost();
             }
         }
         return $this;
     }
 
     /**
-     * Append TYPO3_CONTEXT to site name in the TYPO3 backend
+     * Append TYPO3_CONTEXT to site name in the TYPO3 backend (idempotent).
      */
     final public function appendContextToSiteName(): self
     {
-        if ($this->context->isProduction() === false) {
-            $GLOBALS['TYPO3_CONF_VARS']['SYS']['sitename'] .= ' - ' . (string)$this->context;
+        if ($this->context->isProduction()) {
+            return $this;
+        }
+        $suffix = ' - ' . (string)$this->context;
+        $current = (string)($GLOBALS['TYPO3_CONF_VARS']['SYS']['sitename'] ?? '');
+        if (!str_ends_with($current, $suffix)) {
+            $GLOBALS['TYPO3_CONF_VARS']['SYS']['sitename'] = $current . $suffix;
         }
         return $this;
     }
@@ -862,7 +836,7 @@ class Config implements ConfigInterface
      * and a warning will be logged.
      *
      * Example:
-     * \Moselwal\Config::get()->setPhpSettings([
+     * (new \Moselwal\Config())->setPhpSettings([
      *      'max_execution_time' => 1000,
      *      'max_input_time' => 1000,
      *      'post_max_size' => '100M',
@@ -893,8 +867,8 @@ class Config implements ConfigInterface
      * Override or append TYPO3 configuration settings for a given path with key-value pairs.
      *
      * Examples:
-     * \Moselwal\Config::get()->setConfigPathValues('EXTENSIONS/alterations', ['just-a-test' => 'test']);
-     * \Moselwal\Config::get()->setConfigPathValues(
+     * (new \Moselwal\Config())->setConfigPathValues('EXTENSIONS/alterations', ['just-a-test' => 'test']);
+     * (new \Moselwal\Config())->setConfigPathValues(
      *   'SYS',
      *   [
      *      'just-a-test' => 'test',

@@ -6,9 +6,6 @@ namespace Moselwal;
 
 interface ConfigInterface
 {
-public static function initialize(bool $applyDefaults = true): self;
-public static function get(): self;
-
 public function applyDefaults(): self;
 public function appendContextToSiteName(): self;
 public function useCliPreset(): self;
