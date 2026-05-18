@@ -17,6 +17,9 @@ public function useFileFill(): self;
 public function useConfigLoader(array $forbiddenKeys = []): self;
 public function useGraphicsMagick(string $path = '/usr/bin/'): self;
 public function useImageMagick(string $path = '/usr/bin/'): self;
+public function setImageQuality(int $jpeg, ?int $webp = null, ?int $avif = null, ?int $heif = null): self;
+public function setImageColorspace(string $colorspace): self;
+public function allowImageFileExtensions(string ...$extensions): self;
 public function useMailpit(string $host = 'localhost', ?int $port = null): self;
 /**
  * @param array<string, array<string, mixed>> $additionalCachesKeyValue

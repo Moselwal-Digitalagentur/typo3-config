@@ -274,6 +274,92 @@ class Config implements ConfigInterface
         return $this;
     }
 
+    /**
+     * Set image quality for resize/conversion operations.
+     *
+     * TYPO3 14 supports separate quality settings per output format via
+     * `GFX.jpg_quality`, `GFX.webp_quality`, `GFX.avif_quality`. Values are
+     * percent (1-100), runtime-validated via assertQualityRange().
+     * Default is 85 across all formats; Lighthouse-Audits suggest ~78 as a
+     * good compression/visual-quality tradeoff for web.
+     *
+     * `$webp`, `$avif`, and `$heif` default to `$jpeg` when not explicitly set,
+     * so a single argument applies one quality setting to all formats.
+     */
+    final public function setImageQuality(int $jpeg, ?int $webp = null, ?int $avif = null, ?int $heif = null): self
+    {
+        $this->assertQualityRange('jpeg', $jpeg);
+        $GLOBALS['TYPO3_CONF_VARS']['GFX']['jpg_quality'] = $jpeg;
+        $webpQ = $webp ?? $jpeg;
+        $this->assertQualityRange('webp', $webpQ);
+        $GLOBALS['TYPO3_CONF_VARS']['GFX']['webp_quality'] = $webpQ;
+        $avifQ = $avif ?? $jpeg;
+        $this->assertQualityRange('avif', $avifQ);
+        $GLOBALS['TYPO3_CONF_VARS']['GFX']['avif_quality'] = $avifQ;
+        $heifQ = $heif ?? $jpeg;
+        $this->assertQualityRange('heif', $heifQ);
+        $GLOBALS['TYPO3_CONF_VARS']['GFX']['heif_quality'] = $heifQ;
+        return $this;
+    }
+
+    /**
+     * Set the working colorspace for the image processor.
+     *
+     * Critical for ImageMagick — `'RGB'` is interpreted as linear-light RGB
+     * (gamma 1.0), causing resize operations to produce ~30 % darker output
+     * than the source. For correct sRGB-encoded web images, ImageMagick
+     * requires `'sRGB'` explicitly. GraphicsMagick interpreted `'RGB'` as
+     * sRGB historically; for GM either `'RGB'` or `'sRGB'` produces correct
+     * results.
+     *
+     * Allowed values: `'sRGB'`, `'RGB'`, `'Gray'`, `'CMYK'`.
+     */
+    final public function setImageColorspace(string $colorspace): self
+    {
+        $allowed = ['sRGB', 'RGB', 'Gray', 'CMYK'];
+        if (!in_array($colorspace, $allowed, true)) {
+            throw new \InvalidArgumentException(
+                sprintf('Invalid colorspace "%s". Allowed: %s', $colorspace, implode(', ', $allowed))
+            );
+        }
+        $GLOBALS['TYPO3_CONF_VARS']['GFX']['processor_colorspace'] = $colorspace;
+        return $this;
+    }
+
+    /**
+     * Append file extensions to `GFX.imagefile_ext` (the list of formats TYPO3
+     * accepts for FAL uploads and image processing).
+     *
+     * Duplicates are removed. Use lowercase extension names without leading dot.
+     * Example: `->allowImageFileExtensions('heic', 'heif')` adds HEIC/HEIF
+     * support (requires ImageMagick with libheif).
+     */
+    final public function allowImageFileExtensions(string ...$extensions): self
+    {
+        $current = (string) ($GLOBALS['TYPO3_CONF_VARS']['GFX']['imagefile_ext'] ?? '');
+        $list = array_filter(array_map('trim', explode(',', $current)), static fn (string $e): bool => $e !== '');
+        foreach ($extensions as $ext) {
+            $ext = strtolower(trim($ext, " \t.\n\r\0\x0B"));
+            if ($ext !== '' && !in_array($ext, $list, true)) {
+                $list[] = $ext;
+            }
+        }
+        $GLOBALS['TYPO3_CONF_VARS']['GFX']['imagefile_ext'] = implode(',', $list);
+        return $this;
+    }
+
+    /**
+     * Validate quality value is in 1..100 range.
+     */
+    private function assertQualityRange(string $format, int $quality): void
+    {
+        if ($quality < 1 || $quality > 100) {
+            throw new \InvalidArgumentException(
+                sprintf('Quality for %s must be 1..100, got %d', $format, $quality)
+            );
+        }
+    }
+
     final public function useMailpit(string $host = 'localhost', ?int $port = null): self
     {
         $GLOBALS['TYPO3_CONF_VARS']['MAIL']['transport'] = 'smtp';

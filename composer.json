@@ -18,6 +18,11 @@
 			"Moselwal\\": "src"
 		}
 	},
+	"autoload-dev": {
+		"psr-4": {
+			"Moselwal\\Tests\\": "tests"
+		}
+	},
 	"require-dev": {
 		"moselwal/dev": "^5.0",
 		"php-mock/php-mock-phpunit": "^2.10"
