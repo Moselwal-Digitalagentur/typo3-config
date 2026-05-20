@@ -414,6 +414,82 @@ class Config implements ConfigInterface
         return $this;
     }
 
+    /**
+     * Aktiviert Audit-Logging fuer Authentication-Events (Failed-Logins,
+     * Permission-Denied, MFA-Versuche). Schreibt parallel in FileWriter
+     * (var/log/typo3_auth.log) und DatabaseWriter (sys_log mit channel=security),
+     * sodass Brute-Force-Attacken nachvollziehbar sind und CrowdSec/SIEM-
+     * Systeme eine Auswertbare Quelle haben.
+     *
+     * Mitigation fuer Pentest 2026-05-20 F-13.
+     */
+    final public function useAuditLogging(): self
+    {
+        $writers = [
+            \TYPO3\CMS\Core\Log\LogLevel::NOTICE => [
+                \TYPO3\CMS\Core\Log\Writer\FileWriter::class => [
+                    'logFileInfix' => 'auth',
+                ],
+                \TYPO3\CMS\Core\Log\Writer\DatabaseWriter::class => [
+                    'logTable' => 'sys_log',
+                ],
+            ],
+        ];
+        $components = [
+            'TYPO3' => [
+                'CMS' => [
+                    'Core' => [
+                        'Authentication' => [
+                            'AbstractUserAuthentication' => [
+                                'writerConfiguration' => $writers,
+                            ],
+                        ],
+                    ],
+                    'Backend' => [
+                        'Authentication' => [
+                            'writerConfiguration' => $writers,
+                        ],
+                    ],
+                ],
+            ],
+        ];
+        // Bestehende LOG-Konfig mergen (nicht ueberschreiben).
+        $GLOBALS['TYPO3_CONF_VARS']['LOG'] = array_replace_recursive(
+            $GLOBALS['TYPO3_CONF_VARS']['LOG'] ?? [],
+            $components
+        );
+        return $this;
+    }
+
+    /**
+     * Setzt die Default-Cache-Lifetime fuer FE-Pages auf einen vernuenftigen
+     * Wert (Default 1h statt TYPO3-Default 24h). Verhindert dass ein einmal
+     * gepoisoneter Cache-Eintrag jahrelang persistiert. Kann von einzelnen
+     * Pages via TypoScript `config.cache_period` ueberschrieben werden.
+     *
+     * Mitigation fuer Pentest 2026-05-20 F-15.
+     */
+    final public function useShorterCacheLifetime(int $seconds = 3600): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['FE']['cacheTimeout'] = max(60, $seconds);
+        return $this;
+    }
+
+    /**
+     * Deaktiviert TYPO3-Debug-Cache-Header (X-TYPO3-Debug-Cache,
+     * X-TYPO3-Cache-Tags, X-TYPO3-Cache-Lifetime, X-TYPO3-Parsetime). Diese
+     * leaken interne Cache-Metadata + Internal-Tags an die Aussenwelt.
+     *
+     * Mitigation fuer Pentest 2026-05-20 F-16. Hinweis: Caddy strippt diese
+     * Header zusaetzlich am Edge — Defense in Depth.
+     */
+    final public function useNoCacheDebugHeaders(): self
+    {
+        $GLOBALS['TYPO3_CONF_VARS']['FE']['debug'] = false;
+        $GLOBALS['TYPO3_CONF_VARS']['FE']['cacheTimeoutResponseHeader'] = false;
+        return $this;
+    }
+
     final public function useBackendEntryPoint(string $entryPoint, ?string $cookieDomain = null): self
     {
         $GLOBALS['TYPO3_CONF_VARS']['BE']['entryPoint'] = $entryPoint;
