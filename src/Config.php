@@ -841,12 +841,19 @@ class Config implements ConfigInterface
      *                                  `development`).
      *
      * @param array<int, string> $excludeCaches Caches to keep on their
-     *     current backend even if file-backed. Defaults to `['core']` —
-     *     the PHP code cache benefits from pod-local file storage. Add
-     *     more to opt out (e.g. on a cache you intentionally keep on
-     *     `SimpleFileBackend` for debugging).
+     *     current backend even if file-backed. Defaults are the caches
+     *     that TYPO3 instantiates during the FailsafeContainer bootstrap
+     *     phase (`Bootstrap::createCache()` direct call sites — see
+     *     `BootService::getCoreCache()`, `ServiceProvider::getAssetsCache()`,
+     *     `SchemaMigrator`). These caches are constructed *before* the
+     *     Symfony container with extension-provided DI mappings exists,
+     *     so a backend whose constructor needs the regular DI container
+     *     (or the CacheManager) would dead-lock. The PHP code cache
+     *     (`core`) also benefits from pod-local file storage for opcache
+     *     warm-up. Add more to opt out (e.g. on a cache you intentionally
+     *     keep on `SimpleFileBackend` for debugging).
      */
-    public function useClusterFileBackend(array $excludeCaches = ['core']): self
+    public function useClusterFileBackend(array $excludeCaches = ['core', 'assets', 'database_schema']): self
     {
         if (!class_exists(ClusterFileBackend::class)) {
             return $this;

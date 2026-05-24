@@ -27,7 +27,7 @@ public function useMailpit(string $host = 'localhost', ?int $port = null): self;
  */
 public function autoconfigureCaching(array $additionalCachesKeyValue = [], array $additionalCachesAPCU = [], string $keyvaluePassword = ''): self;
 /** @param array<int, string> $excludeCaches */
-public function useClusterFileBackend(array $excludeCaches = ['core']): self;
+public function useClusterFileBackend(array $excludeCaches = ['core', 'assets', 'database_schema']): self;
 /** @param array<int, string>|null $applyForCaches */
 public function setAlternativeCachePath(string $path, ?array $applyForCaches = null): self;
 /** @param array<string, string> $settings */
