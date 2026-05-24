@@ -930,8 +930,16 @@ class Config implements ConfigInterface
                     'instance' => $instance,
                 ],
             ];
-            if (isset($existing['options']['defaultLifetime'])) {
-                $options['defaultLifetimeSeconds'] = (int)$existing['options']['defaultLifetime'];
+            // Only forward a positive defaultLifetime — the ClusterFileBackend
+            // option-schema rejects 0 (which TYPO3 treats as "cache forever").
+            // For 0/missing values we let the backend pick its own default
+            // (3600s as of v1.0.x), which is the safest cluster-default and
+            // matches what `SimpleFileBackend` consumers had in practice.
+            $existingLifetime = isset($existing['options']['defaultLifetime'])
+                ? (int)$existing['options']['defaultLifetime']
+                : 0;
+            if ($existingLifetime > 0) {
+                $options['defaultLifetimeSeconds'] = $existingLifetime;
             }
 
             $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations'][$cacheName] = array_replace(
