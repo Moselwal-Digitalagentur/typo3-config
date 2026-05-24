@@ -15,6 +15,7 @@ use Moselwal\Typo3ClusterCache\Infrastructure\Cache\Backend\ClusterFileBackend;
 use TYPO3\CMS\Core\Cache\Backend\FileBackend;
 use TYPO3\CMS\Core\Cache\Backend\SimpleFileBackend;
 use TYPO3\CMS\Core\Cache\Backend\Typo3DatabaseBackend;
+use TYPO3\CMS\Core\Cache\Frontend\PhpFrontend;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 use TYPO3\CMS\Core\Core\ApplicationContext;
 use TYPO3\CMS\Core\Core\Environment;
@@ -866,9 +867,20 @@ class Config implements ConfigInterface
                 continue;
             }
             $backend = $config['backend'] ?? null;
-            if ($backend === SimpleFileBackend::class || $backend === FileBackend::class) {
-                $candidates[] = (string)$cacheName;
+            if ($backend !== SimpleFileBackend::class && $backend !== FileBackend::class) {
+                continue;
             }
+            // ClusterFileBackend implements only TaggableBackendInterface,
+            // not PhpCapableBackendInterface. Caches wired through PhpFrontend
+            // (typoscript, fluid_template, extbase reflection, …) eval their
+            // payloads as PHP code and the frontend's constructor type-checks
+            // the backend interface. Skip those — they have to keep their
+            // file backend.
+            $frontend = $config['frontend'] ?? null;
+            if ($frontend === PhpFrontend::class || (is_string($frontend) && is_a($frontend, PhpFrontend::class, true))) {
+                continue;
+            }
+            $candidates[] = (string)$cacheName;
         }
 
         if ($candidates === []) {
