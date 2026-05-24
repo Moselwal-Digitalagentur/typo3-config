@@ -6,14 +6,13 @@ namespace Moselwal\Tests;
 
 use Moselwal\Config;
 use phpmock\phpunit\PHPMock;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class CacheConfigurationTest extends ConfigTestCase
 {
     use PHPMock;
 
-    /**
-     * @dataProvider typo3VersionCacheProvider
-     */
+    #[DataProvider('typo3VersionCacheProvider')]
     public function testVersionSpecificCacheRemoval(int $majorVersion, bool $expectPagesection, bool $expectImagesizes): void
     {
         // Mock getenv to provide KEYVALUE_HOST
@@ -61,11 +60,38 @@ class CacheConfigurationTest extends ConfigTestCase
 
     public static function typo3VersionCacheProvider(): array
     {
+        // typo3-config v5.x requires typo3/cms-core ^14.0, so only v12+ is
+        // exercised here. pagesection is removed unconditionally because
+        // every supported version is post-v12.
         return [
-            'TYPO3 v11: pagesection+imagesizes present' => [11, true, true],
             'TYPO3 v12: pagesection removed, imagesizes present' => [12, false, true],
             'TYPO3 v13: both removed' => [13, false, false],
             'TYPO3 v14: both removed' => [14, false, false],
         ];
+    }
+
+    public function testUseClusterFileBackendIsNoopWhenExtensionMissing(): void
+    {
+        // The class is not in the test autoloader, so class_exists() is false.
+        // Behaviour contract: silent no-op, configuration untouched.
+        $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['assets'] = [
+            'frontend' => \TYPO3\CMS\Core\Cache\Frontend\VariableFrontend::class,
+            'backend' => \TYPO3\CMS\Core\Cache\Backend\SimpleFileBackend::class,
+            'options' => [],
+        ];
+
+        $config = new Config();
+        $config->useClusterFileBackend();
+
+        self::assertSame(
+            \TYPO3\CMS\Core\Cache\Backend\SimpleFileBackend::class,
+            $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations']['assets']['backend'],
+            'useClusterFileBackend() must be a no-op when ClusterFileBackend is not installed',
+        );
+        self::assertArrayNotHasKey(
+            'cluster_meta',
+            $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations'],
+            'cluster_meta must not be registered when the extension is absent',
+        );
     }
 }

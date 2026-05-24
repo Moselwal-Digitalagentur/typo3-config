@@ -11,6 +11,11 @@ namespace Moselwal;
 use Moselwal\KeyValueStore\Cache\Backend\KeyValueBackend;
 use Moselwal\KeyValueStore\Locking\KeyValueLockingStrategy;
 use Moselwal\KeyValueStore\Session\Backend\KeyValueSessionBackend;
+use Moselwal\Typo3ClusterCache\Infrastructure\Cache\Backend\ClusterFileBackend;
+use TYPO3\CMS\Core\Cache\Backend\FileBackend;
+use TYPO3\CMS\Core\Cache\Backend\SimpleFileBackend;
+use TYPO3\CMS\Core\Cache\Backend\Typo3DatabaseBackend;
+use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 use TYPO3\CMS\Core\Core\ApplicationContext;
 use TYPO3\CMS\Core\Core\Environment;
 use TYPO3\CMS\Core\Information\Typo3Version;
@@ -704,6 +709,18 @@ class Config implements ConfigInterface
                 $additionalCachesKeyValue
             );
 
+            // ClusterFileBackend (moselwal/cluster-file-backend) keeps its
+            // central truth in a TYPO3 cache frontend called `cluster_meta`.
+            // When the extension is installed, register that frontend on the
+            // same KeyValue connection — that is the natural high-throughput
+            // backend and avoids a second, duplicate Redis config block in
+            // useClusterFileBackend(). `defaultLifetime => 0` means "no TTL
+            // at the metadata layer"; the cluster backend manages expiry
+            // itself via `expiresAt` in each metadata record.
+            if (class_exists(ClusterFileBackend::class) && !isset($redisCaches['cluster_meta'])) {
+                $redisCaches['cluster_meta'] = ['defaultLifetime' => 0];
+            }
+
             // pagesection cache was removed in TYPO3 12
             unset($redisCaches['pagesection'], $redisCaches['cache_pagesection']);
 
@@ -768,6 +785,162 @@ class Config implements ConfigInterface
                         = $values['defaultLifetime'];
                 }
             }
+        }
+
+        // Auto-config: when moselwal/cluster-file-backend is installed,
+        // move every file-backed cache (except `core`) onto the cluster
+        // backend. Silent no-op when the package is not present, so this
+        // call is safe in every project.
+        $this->useClusterFileBackend();
+
+        return $this;
+    }
+
+    /**
+     * Re-wires every cache that is currently backed by TYPO3 Core's
+     * {@see FileBackend} or {@see SimpleFileBackend} onto the cluster-aware
+     * {@see ClusterFileBackend} from `moselwal/cluster-file-backend`. The
+     * `core` cache (PHP code cache) is excluded by default because it
+     * already ships immutably with the container image and is safely
+     * pod-local.
+     *
+     * Auto-config behaviour: {@see autoconfigureCaching()} calls this
+     * method at the end of its own wiring. It is a silent no-op when
+     * `moselwal/cluster-file-backend` is not installed
+     * (`class_exists(ClusterFileBackend::class) === false`). Once the
+     * extension is present in the project, every file-backed cache
+     * automatically moves onto the cluster backend without any further
+     * configuration — the central truth lives in the metadata cache, while
+     * payloads are written to a pod-local emptyDir.
+     *
+     * Metadata cache (`cluster_meta`): the truth store is *not* reconfigured
+     * here. {@see autoconfigureCaching()} already adds `cluster_meta` to its
+     * KeyValue cache block whenever Redis/Valkey is available — that is the
+     * preferred high-throughput backend and the wiring lives in exactly one
+     * place. This method only adds a zero-dependency fallback on
+     * {@see Typo3DatabaseBackend} when nothing has registered `cluster_meta`
+     * yet, so consumers that skip {@see autoconfigureCaching()} still get a
+     * working setup. Don't duplicate the KeyValue config here — it would
+     * drift from `autoconfigureCaching()`.
+     *
+     * Why this works: cluster-file-backend keeps cache validity in the
+     * (clustered) metadata cache, while the (large) payload bytes are
+     * materialised on each pod's emptyDir. That is the exact contract the
+     * TYPO3 file-backed caches need in Kubernetes — every other backend
+     * choice in `cacheConfigurations` is left untouched.
+     *
+     * Environment overrides (all optional):
+     *  - `CLUSTER_CACHE_LOCAL_PATH`  — base path for payload stores
+     *                                  (default: `<varPath>/cache/cluster`).
+     *  - `CLUSTER_CACHE_INSTANCE`    — namespace instance slug
+     *                                  (default: `gethostname()` lowercased,
+     *                                  fallback `'main'`).
+     *  - `CLUSTER_CACHE_ENVIRONMENT` — overrides the auto-derived
+     *                                  environment name (`prod` |
+     *                                  `staging` | `testing` |
+     *                                  `development`).
+     *
+     * @param array<int, string> $excludeCaches Caches to keep on their
+     *     current backend even if file-backed. Defaults to `['core']` —
+     *     the PHP code cache benefits from pod-local file storage. Add
+     *     more to opt out (e.g. on a cache you intentionally keep on
+     *     `SimpleFileBackend` for debugging).
+     */
+    public function useClusterFileBackend(array $excludeCaches = ['core']): self
+    {
+        if (!class_exists(ClusterFileBackend::class)) {
+            return $this;
+        }
+
+        $configurations = $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations'] ?? [];
+        $candidates = [];
+        foreach ($configurations as $cacheName => $config) {
+            if (in_array($cacheName, $excludeCaches, true)) {
+                continue;
+            }
+            $backend = $config['backend'] ?? null;
+            if ($backend === SimpleFileBackend::class || $backend === FileBackend::class) {
+                $candidates[] = (string)$cacheName;
+            }
+        }
+
+        if ($candidates === []) {
+            // Nothing file-backed to migrate — skip the metadata cache
+            // registration too so the consumer's TYPO3 install stays lean.
+            return $this;
+        }
+
+        $localPathEnv = getenv('CLUSTER_CACHE_LOCAL_PATH');
+        $localPathBase = rtrim(is_string($localPathEnv) ? $localPathEnv : '', '/');
+        if ($localPathBase === '') {
+            $localPathBase = rtrim($this->varPath, '/') . '/cache/cluster';
+        }
+
+        $instanceEnv = getenv('CLUSTER_CACHE_INSTANCE');
+        $instance = is_string($instanceEnv) ? $instanceEnv : '';
+        if ($instance === '') {
+            $hostname = gethostname();
+            $instance = is_string($hostname) && $hostname !== '' ? strtolower($hostname) : 'main';
+        }
+        // Constrain to the schema's `[a-z0-9-]{1,64}` — the backend rejects anything else.
+        $instance = substr((string)preg_replace('/[^a-z0-9-]/', '-', strtolower($instance)), 0, 64);
+        if ($instance === '') {
+            $instance = 'main';
+        }
+
+        $environmentEnv = getenv('CLUSTER_CACHE_ENVIRONMENT');
+        $environment = is_string($environmentEnv) ? $environmentEnv : '';
+        if ($environment === '') {
+            $environment = match (true) {
+                $this->context->isProduction() => 'prod',
+                $this->context->isTesting() => 'testing',
+                $this->context->isDevelopment() => 'development',
+                default => 'development',
+            };
+        }
+
+        $metadataCacheIdentifier = 'cluster_meta';
+
+        // Zero-dependency fallback for `cluster_meta`. autoconfigureCaching()
+        // already registers it on KeyValueBackend when Redis is available
+        // (see the `cluster_meta` block there); we only fill the gap when
+        // nothing has wired the metadata cache yet — keeps the wiring
+        // DRY with a single source of truth for the KeyValue config.
+        if (!isset($GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations'][$metadataCacheIdentifier])) {
+            $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations'][$metadataCacheIdentifier] = [
+                'frontend' => VariableFrontend::class,
+                'backend' => Typo3DatabaseBackend::class,
+                'options' => [],
+                'groups' => ['system'],
+            ];
+        }
+
+        // Re-wire every file-backed cache. We preserve the existing frontend
+        // (the consumer chose `PhpFrontend` or `FluidTemplateCache` for a
+        // reason) plus any `defaultLifetime` and `groups` so the override is
+        // minimally invasive — only `backend` and `options` get replaced.
+        foreach ($candidates as $cacheName) {
+            $existing = $configurations[$cacheName];
+
+            $options = [
+                'localPath' => $localPathBase . '/' . $cacheName,
+                'metadataCacheIdentifier' => $metadataCacheIdentifier,
+                'namespace' => [
+                    'environment' => $environment,
+                    'instance' => $instance,
+                ],
+            ];
+            if (isset($existing['options']['defaultLifetime'])) {
+                $options['defaultLifetimeSeconds'] = (int)$existing['options']['defaultLifetime'];
+            }
+
+            $GLOBALS['TYPO3_CONF_VARS']['SYS']['caching']['cacheConfigurations'][$cacheName] = array_replace(
+                $existing,
+                [
+                    'backend' => ClusterFileBackend::class,
+                    'options' => $options,
+                ],
+            );
         }
 
         return $this;

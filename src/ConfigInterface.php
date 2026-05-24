@@ -26,6 +26,8 @@ public function useMailpit(string $host = 'localhost', ?int $port = null): self;
  * @param array<string, array<string, mixed>> $additionalCachesAPCU
  */
 public function autoconfigureCaching(array $additionalCachesKeyValue = [], array $additionalCachesAPCU = [], string $keyvaluePassword = ''): self;
+/** @param array<int, string> $excludeCaches */
+public function useClusterFileBackend(array $excludeCaches = ['core']): self;
 /** @param array<int, string>|null $applyForCaches */
 public function setAlternativeCachePath(string $path, ?array $applyForCaches = null): self;
 /** @param array<string, string> $settings */
@@ -38,6 +40,9 @@ public function initializeDatabaseConnection(?array $options = null, string $con
 public function allowNoCacheQueryParameter(): self;
 public function forbidNoCacheQueryParameter(): self;
 public function useReverseProxy(string $trustedIPs = '*'): self;
+public function useAuditLogging(): self;
+public function useShorterCacheLifetime(int $seconds = 3600): self;
+public function useNoCacheDebugHeaders(): self;
 public function useBackendEntryPoint(string $entryPoint, ?string $cookieDomain = null): self;
 public function allowInvalidCacheHashQueryParameter(): self;
 public function forbidInvalidCacheHashQueryParameter(): self;
