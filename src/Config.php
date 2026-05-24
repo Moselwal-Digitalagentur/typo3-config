@@ -15,7 +15,6 @@ use Moselwal\Typo3ClusterCache\Infrastructure\Cache\Backend\ClusterFileBackend;
 use TYPO3\CMS\Core\Cache\Backend\FileBackend;
 use TYPO3\CMS\Core\Cache\Backend\SimpleFileBackend;
 use TYPO3\CMS\Core\Cache\Backend\Typo3DatabaseBackend;
-use TYPO3\CMS\Core\Cache\Frontend\PhpFrontend;
 use TYPO3\CMS\Core\Cache\Frontend\VariableFrontend;
 use TYPO3\CMS\Core\Core\ApplicationContext;
 use TYPO3\CMS\Core\Core\Environment;
@@ -870,16 +869,13 @@ class Config implements ConfigInterface
             if ($backend !== SimpleFileBackend::class && $backend !== FileBackend::class) {
                 continue;
             }
-            // ClusterFileBackend implements only TaggableBackendInterface,
-            // not PhpCapableBackendInterface. Caches wired through PhpFrontend
-            // (typoscript, fluid_template, extbase reflection, …) eval their
-            // payloads as PHP code and the frontend's constructor type-checks
-            // the backend interface. Skip those — they have to keep their
-            // file backend.
-            $frontend = $config['frontend'] ?? null;
-            if ($frontend === PhpFrontend::class || (is_string($frontend) && is_a($frontend, PhpFrontend::class, true))) {
-                continue;
-            }
+            // PhpFrontend caches (typoscript, fluid_template, …) are migrated
+            // too: moselwal/cluster-file-backend >= 2.2.0 implements
+            // PhpCapableBackendInterface, including marker-prefixed payloads
+            // and a `.php`-suffix on the pod-local store so OPcache can pick
+            // up the files. On older cluster-file-backend versions this would
+            // crash at PhpFrontend's constructor type-check — that is the
+            // composer constraint's job to prevent, not ours here.
             $candidates[] = (string)$cacheName;
         }
 
