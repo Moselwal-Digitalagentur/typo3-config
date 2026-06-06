@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: typo3-config
-Upstream-Contact: Moselwal Digitalagentur GmbH <support@moselwal.io>
+Upstream-Contact: Moselwal Digitalagentur GmbH <support@moselwal.de>
 Source: https://gitlab.moselwal.io/development/moselwal/typo3-config
 
 Files: *
