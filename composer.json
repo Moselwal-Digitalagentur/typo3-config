@@ -2,7 +2,13 @@
     "name": "moselwal/typo3-config",
     "description": "Fluent API to set environment-specific configuration for TYPO3.",
     "license": "MIT",
-    "keywords": ["typo3", "configuration", "environment", "dotenv", "12factor"],
+    "keywords": [
+        "typo3",
+        "configuration",
+        "environment",
+        "dotenv",
+        "12factor"
+    ],
     "authors": [
         {
             "name": "Moselwal Digitalagentur GmbH",
@@ -16,6 +22,7 @@
             "role": "Developer"
         }
     ],
+    "homepage": "https://moselwal.de",
     "support": {
         "issues": "https://github.com/Moselwal-Digitalagentur/typo3-config/issues",
         "source": "https://github.com/Moselwal-Digitalagentur/typo3-config"
