@@ -27,21 +27,25 @@
         "issues": "https://github.com/Moselwal-Digitalagentur/typo3-config/issues",
         "source": "https://github.com/Moselwal-Digitalagentur/typo3-config"
     },
-    "repositories": [
-        {
-            "type": "composer",
-            "url": "https://gitlab.moselwal.io/api/v4/group/175/-/packages/composer/packages.json"
-        }
-    ],
     "require": {
         "php": "^8.5",
         "composer/installers": "^2.3",
         "typo3/cms-core": "^14.0"
     },
     "require-dev": {
+        "ergebnis/composer-normalize": "^2.52",
         "moselwal/dev": "^5.0",
         "php-mock/php-mock-phpunit": "^2.10"
     },
+    "suggest": {
+        "moselwal/keyvalue-store": "Redis/Valkey integration for caching, sessions, and locking"
+    },
+    "repositories": [
+        {
+            "type": "composer",
+            "url": "https://gitlab.moselwal.io/api/v4/group/175/-/packages/composer/packages.json"
+        }
+    ],
     "autoload": {
         "psr-4": {
             "Moselwal\\": "src"
@@ -52,21 +56,19 @@
             "Moselwal\\Tests\\": "tests"
         }
     },
-    "scripts": {
-        "test": "phpunit",
-        "test:coverage": "phpunit --coverage-text",
-        "phpstan": "phpstan analyse"
-    },
-    "suggest": {
-        "moselwal/keyvalue-store": "Redis/Valkey integration for caching, sessions, and locking"
-    },
     "config": {
         "allow-plugins": {
             "composer/installers": true,
-            "typo3/cms-composer-installers": true,
-            "typo3/class-alias-loader": true,
+            "ergebnis/composer-normalize": true,
             "phpstan/extension-installer": true,
-            "sbuerk/typo3-cmscomposerinstallers-testingframework-bridge": true
+            "sbuerk/typo3-cmscomposerinstallers-testingframework-bridge": true,
+            "typo3/class-alias-loader": true,
+            "typo3/cms-composer-installers": true
         }
+    },
+    "scripts": {
+        "phpstan": "phpstan analyse",
+        "test": "phpunit",
+        "test:coverage": "phpunit --coverage-text"
     }
 }
