@@ -22,7 +22,7 @@ Fluent PHP API for environment-specific TYPO3 configuration. Provides context-ba
 
 ```bash
 composer require moselwal/typo3-config
-```
+```text
 
 ## Quick Start
 
@@ -51,7 +51,7 @@ Secrets are resolved through a cascading lookup:
 ```bash
 # Docker secrets or Kubernetes mounts
 echo "supersecret" > /run/secrets/db_password
-```
+```text
 
 ```php
 Config::get()->loadCoreSecrets();
@@ -83,7 +83,7 @@ Config::get()
     ->setConfigPathValues('SYS', [
         'defaultScheme' => 'https',
     ]);
-```
+```text
 
 ## TYPO3 Version Compatibility
 
@@ -104,7 +104,7 @@ tests/
 ├── ConfigTestCase.php      # Base test class (singleton reset, $GLOBALS isolation)
 ├── TestableConfig.php      # Test subclass for version injection
 └── ...                     # 35+ tests with >120 assertions
-```
+```text
 
 - **Singleton pattern** via `Config::initialize()` / `Config::get()`
 - **Namespace**: `Moselwal\` → `src/` (PSR-4)

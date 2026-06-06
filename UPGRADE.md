@@ -27,7 +27,7 @@ Config::initialize()
     ->loadCoreSecrets()
     ->autoconfigureCaching()
     ->useReverseProxy('*');
-```
+```text
 
 **Nachher (v4.0):**
 
@@ -49,7 +49,7 @@ einfach weglassen:
 (new Config())
     ->useProductionPreset()
     ->loadCoreSecrets();
-```
+```text
 
 ### Migration für Konsumenten von `Config::get()`
 
@@ -78,7 +78,7 @@ return (new Config())
 // config/system/additional.php
 (new Config())
     ->setPhpSettings(['memory_limit' => '256M']);
-```
+```text
 
 `new Config()` ist günstig — nur 4 Property-Initialisierungen aus dem TYPO3
 Environment.
