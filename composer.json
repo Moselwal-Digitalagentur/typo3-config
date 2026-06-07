@@ -25,7 +25,8 @@
     "homepage": "https://moselwal.de",
     "support": {
         "issues": "https://github.com/Moselwal-Digitalagentur/typo3-config/issues",
-        "source": "https://github.com/Moselwal-Digitalagentur/typo3-config"
+        "source": "https://github.com/Moselwal-Digitalagentur/typo3-config",
+        "docs": "https://moselwal.de/open-source/typo3-config"
     },
     "require": {
         "php": "^8.5",
