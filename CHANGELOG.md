@@ -1,3 +1,10 @@
+## [5.4.5](https://gitlab.moselwal.io/development/moselwal/typo3-config/compare/v5.4.4...v5.4.5) (2026-06-07)
+
+
+### Bug Fixes
+
+* **release:** drop [skip ci] from semantic-release commit ([2dae982](https://gitlab.moselwal.io/development/moselwal/typo3-config/commit/2dae982f1b87cfaa168ccc1d9aa1876c74e5628e))
+
 ## [5.4.4](https://gitlab.moselwal.io/development/moselwal/typo3-config/compare/v5.4.3...v5.4.4) (2026-06-07)
 
 
