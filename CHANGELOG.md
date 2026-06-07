@@ -1,3 +1,10 @@
+# [5.5.0](https://gitlab.moselwal.io/development/moselwal/typo3-config/compare/v5.4.5...v5.5.0) (2026-06-07)
+
+
+### Features
+
+* **release:** add develop branch as rc-prerelease channel ([7891f75](https://gitlab.moselwal.io/development/moselwal/typo3-config/commit/7891f75665aeb08333ad05c893e4c3e7ae475601))
+
 ## [5.4.5](https://gitlab.moselwal.io/development/moselwal/typo3-config/compare/v5.4.4...v5.4.5) (2026-06-07)
 
 
